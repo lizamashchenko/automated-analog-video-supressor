@@ -20,7 +20,7 @@ sdr.activateStream(stream)
 # --------------------
 # Sweep config
 # --------------------
-f_start = 1e6
+f_start = 5e9
 f_stop  = 6e9
 step    = 10e6
 fft_size = 4096
