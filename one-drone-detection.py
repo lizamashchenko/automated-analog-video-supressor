@@ -17,7 +17,12 @@ EXPECTED_BW_MHZ = 8        # expected video width (6–8 MHz typical)
 THRESHOLD_DB = 6           # bins must be 6 dB above noise floor
 MIN_CLUSTER_MHZ = 2        # minimum cluster size to consider real
 
-import numpy as np
+
+def fm_demod(iq):
+    """
+    Simple complex FM discriminator
+    """
+    return np.angle(iq[1:] * np.conj(iq[:-1]))
 
 def print_spectrum_bar(avg_power, bins=80):
     """
@@ -37,6 +42,45 @@ def print_spectrum_bar(avg_power, bins=80):
     bars = "▁▂▃▄▅▆▇█"
     line = "".join(bars[int(s*7)] for s in scaled)
     print(line)
+
+def print_waveform(signal, width=80, height=20):
+    """
+    Prints a simple ASCII oscilloscope of a signal
+    """
+    sig = signal.copy()
+
+    # Downsample to fit width
+    step = max(1, len(sig) // width)
+    sig = sig[::step][:width]
+
+    # Normalize
+    sig = sig - np.mean(sig)
+    max_val = np.max(np.abs(sig)) + 1e-6
+    sig = sig / max_val
+
+    canvas = [[" " for _ in range(width)] for _ in range(height)]
+    mid = height // 2
+
+    for x in range(len(sig)):
+        y = int(mid - sig[x] * (height//2 - 1))
+        y = max(0, min(height-1, y))
+        canvas[y][x] = "█"
+
+    for row in canvas:
+        print("".join(row))
+
+import os
+from datetime import datetime
+
+LOG_DIR = "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
+
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+iq_file = os.path.join(LOG_DIR, f"iq_{timestamp}.bin")
+demod_file = os.path.join(LOG_DIR, f"demod_{timestamp}.bin")
+fft_file = os.path.join(LOG_DIR, f"fft_{timestamp}.bin")
+meta_file = os.path.join(LOG_DIR, f"meta_{timestamp}.txt")
 
 # -----------------------------
 # DEVICE SETUP
@@ -149,6 +193,74 @@ while True:
     if occupied_bw > 0:
         print(f"Detected signal bandwidth: {occupied_bw:.2f} MHz")
         print(f"Detected center frequency: {center_freq:.2f} MHz")
+        
+        # --------------------------------
+        # FM DEMODULATION CHECK
+        # --------------------------------
+        # center_freq is in MHz
+        detected_center_hz = center_freq * 1e6
+        freq_offset = detected_center_hz - CENTER_FREQ
+
+        n = np.arange(len(samples))
+        mixer = np.exp(-1j * 2 * np.pi * freq_offset * n / SAMPLE_RATE)
+        shifted = samples * mixer
+
+        spec = np.fft.fftshift(np.fft.fft(shifted))
+        freq_axis = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, len(spec))
+
+        mask = np.abs(freq_axis) <= 5e6   # ±5 MHz
+        spec_filtered = spec * mask
+
+        filtered = np.fft.ifft(np.fft.ifftshift(spec_filtered))
+
+        demod = fm_demod(samples)
+
+        # FFT of demodulated signal
+        demod_fft = np.fft.fftshift(np.fft.fft(demod * np.hanning(len(demod))))
+        demod_power = 20 * np.log10(np.abs(demod_fft) + 1e-12)
+
+        demod_freqs = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, len(demod))
+
+        # Look around ±15 kHz
+        sync_band = 2000  # ±2 kHz window
+        target_freq = 15625  # PAL
+
+        pos_mask = (demod_freqs > target_freq - sync_band) & (demod_freqs < target_freq + sync_band)
+        neg_mask = (demod_freqs > -target_freq - sync_band) & (demod_freqs < -target_freq + sync_band)
+
+        pos_energy = np.max(demod_power[pos_mask])
+        neg_energy = np.max(demod_power[neg_mask])
+
+        base_noise = np.median(demod_power)
+
+        sync_detected = (pos_energy - base_noise > 6) and (neg_energy - base_noise > 6)
+        # ---- SAVE RAW IQ ----
+        with open(iq_file, "ab") as f:
+            samples.astype(np.complex64).tofile(f)
+
+        # ---- SAVE DEMOD ----
+        with open(demod_file, "ab") as f:
+            demod.astype(np.float32).tofile(f)
+
+        # ---- SAVE FFT POWER ----
+        with open(fft_file, "ab") as f:
+            avg_power.astype(np.float32).tofile(f)
+
+        # ---- SAVE METADATA ----
+        with open(meta_file, "a") as f:
+            f.write(
+                f"BW={occupied_bw:.3f}MHz "
+                f"Center={center_freq:.3f}MHz "
+                f"Noise={noise_floor:.2f}dB\n"
+            )
+
+        print(f"FM sync +15kHz peak: {pos_energy:.1f} dB")
+        print(f"FM sync -15kHz peak: {neg_energy:.1f} dB")
+
+        if sync_detected:
+            print(">>> ANALOG VIDEO SYNC DETECTED <<<")
+        else:
+            print("Wideband signal but no video sync")
     else:
         print("No wideband signal detected")
 
