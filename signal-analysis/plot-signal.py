@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
 
-FILE = "/home/liza/UCU/diploma/hackrf_scans/sweep_1_drone_on_all_time.csv"
+FILE = "/home/liza/UCU/diploma/dataset/spectrum_recordings/rec-0001.csv"
 
 
 sweeps = []

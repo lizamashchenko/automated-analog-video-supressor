@@ -1,15 +1,12 @@
 import SoapySDR
 from SoapySDR import *
 import numpy as np
-import os
-from datetime import datetime
 import time
 
 # -----------------------------
 # PARAMETERS
 # -----------------------------
-MIN_FREQ = 1e2
-MAX_FREQ = 6000e6
+CENTER_FREQ = 5840e6
 SAMPLE_RATE = 20e6
 GAIN = 35
 FFT_SIZE = 8192
@@ -17,23 +14,12 @@ BUFFER_SIZE = 262144   # Large buffer prevents underruns
 ALPHA = 0.2            # FFT averaging factor
 
 EXPECTED_BW_MHZ = 8        # expected video width (6–8 MHz typical)
-THRESHOLD_DB = 6           # bins must be 6 dB above noise floor
-MIN_CLUSTER_MHZ = 2        # minimum cluster size to consider real
+THRESHOLD_DB = 5          # bins must be 6 dB above noise floor
+MIN_CLUSTER_MHZ = 1.5        # minimum cluster size to consider real
 
-WIDE_SAMPLING_NUM = 10
+import numpy as np
 
-LOG_DIR = "logs"
-
-avg_power = None
-baseband_candidates = []
-
-def fm_demod(iq):
-    """
-    Simple complex FM discriminator
-    """
-    return np.angle(iq[1:] * np.conj(iq[:-1]))
-
-def print_spectrum_bar(avg_power, center_freq, bins=80):
+def print_spectrum_bar(avg_power, bins=80):
     """
     Prints a simple ASCII spectrum to console.
     avg_power: array of power readings (dB or linear)
@@ -51,14 +37,59 @@ def print_spectrum_bar(avg_power, center_freq, bins=80):
     bars = "▁▂▃▄▅▆▇█"
     line = "".join(bars[int(s*7)] for s in scaled)
     print(line)
-    print(f"{(center_freq - SAMPLE_RATE/2) / 1e6} \t\t\t\t\t\t\t\t\t {(center_freq + SAMPLE_RATE/2) / 1e6}")
 
-def classify_one_chunk(samples, hrf_center_freq):
-    global avg_power
+# -----------------------------
+# DEVICE SETUP
+# -----------------------------
+print("[INFO] Opening HackRF...")
+sdr = SoapySDR.Device(dict(driver="hackrf"))
 
+sdr.setSampleRate(SOAPY_SDR_RX, 0, SAMPLE_RATE)
+sdr.setFrequency(SOAPY_SDR_RX, 0, CENTER_FREQ)
+
+sdr.setGain(SOAPY_SDR_RX, 0, False)
+sdr.setGain(SOAPY_SDR_RX, 0, "LNA", 32)
+sdr.setGain(SOAPY_SDR_RX, 0, "VGA", 32)
+
+rxStream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)
+sdr.activateStream(rxStream)
+
+buff = np.empty(BUFFER_SIZE, np.complex64)
+
+avg_power = None
+
+print("Monitoring 5840 MHz...")
+
+# -----------------------------
+# MAIN LOOP
+# -----------------------------
+while True:
+    sr = sdr.readStream(rxStream, [buff], BUFFER_SIZE)
+
+    if sr.ret <= 0:
+        print("Stream error:", sr.ret)
+        continue
+
+    samples = buff[:sr.ret]
+
+    # Detect zero buffers
+    if np.all(samples == 0):
+        print("⚠️ ZERO BUFFER DETECTED")
+        continue
+
+    # Use only FFT_SIZE samples for spectrum
+    samples = samples[:FFT_SIZE]
+
+    # Apply window
     window = np.hanning(len(samples))
     spectrum = np.fft.fftshift(np.fft.fft(samples * window))
     power = 20 * np.log10(np.abs(spectrum) + 1e-12)
+
+    # remove center DC spike
+    center = len(power) // 2
+    dc_width = 5  # bins to remove
+
+    power[center - dc_width:center + dc_width] = np.median(power)
 
     # Averaging like GQRX
     if avg_power is None:
@@ -66,13 +97,18 @@ def classify_one_chunk(samples, hrf_center_freq):
     else:
         avg_power = ALPHA * power + (1 - ALPHA) * avg_power
 
+    # Median + Peak
+    median_power = np.median(avg_power)
+    peak_index = np.argmax(avg_power)
+    peak_power = avg_power[peak_index]
+
     # --------------------------------
     # THRESHOLD-BASED OCCUPANCY
     # --------------------------------
 
     freqs = np.linspace(
-        hrf_center_freq - SAMPLE_RATE/2,
-        hrf_center_freq + SAMPLE_RATE/2,
+        CENTER_FREQ - SAMPLE_RATE/2,
+        CENTER_FREQ + SAMPLE_RATE/2,
         FFT_SIZE
     )
 
@@ -83,6 +119,7 @@ def classify_one_chunk(samples, hrf_center_freq):
     active_bins = np.where(avg_power > threshold)[0]
 
     clusters = []
+
     if len(active_bins) > 0:
         current_cluster = [active_bins[0]]
 
@@ -119,94 +156,8 @@ def classify_one_chunk(samples, hrf_center_freq):
     if occupied_bw > 0:
         print(f"Detected signal bandwidth: {occupied_bw:.2f} MHz")
         print(f"Detected center frequency: {center_freq:.2f} MHz")
-        
-        # --------------------------------
-        # FM DEMODULATION CHECK
-        # --------------------------------
-
-        demod = fm_demod(samples)
-
-        # FFT of demodulated signal
-        demod_fft = np.fft.fftshift(np.fft.fft(demod * np.hanning(len(demod))))
-        demod_power = 20 * np.log10(np.abs(demod_fft) + 1e-12)
-
-        demod_freqs = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, len(demod))
-
-        # Look around ±15 kHz
-        sync_band = 2000  # ±2 kHz window
-        target_freq = 15625  # PAL
-
-        pos_mask = (demod_freqs > target_freq - sync_band) & (demod_freqs < target_freq + sync_band)
-        neg_mask = (demod_freqs > -target_freq - sync_band) & (demod_freqs < -target_freq + sync_band)
-
-        pos_energy = np.max(demod_power[pos_mask])
-        neg_energy = np.max(demod_power[neg_mask])
-
-        base_noise = np.median(demod_power)
-
-        sync_detected = (pos_energy - base_noise > 6) and (neg_energy - base_noise > 6)
-
-        print(f"FM sync +15kHz peak: {pos_energy:.1f} dB")
-        print(f"FM sync -15kHz peak: {neg_energy:.1f} dB")
-
-        if sync_detected:
-            print(">>> ANALOG VIDEO SYNC DETECTED <<<")
-        else:
-            print("Wideband signal but no video sync")
     else:
         print("No wideband signal detected")
 
     print("------------------------------")
-    print_spectrum_bar(avg_power, hrf_center_freq)
-
-# -----------------------------
-# MAIN LOOP
-# -----------------------------
-def main():
-    current_freq = MIN_FREQ
-
-    while current_freq < MAX_FREQ:
-        sdr.setFrequency(SOAPY_SDR_RX, 0, current_freq)
-
-        for i in range(WIDE_SAMPLING_NUM):
-            sr = sdr.readStream(rxStream, [buff], BUFFER_SIZE)
-
-            if sr.ret <= 0:
-                print("Stream error:", sr.ret)
-                return
-
-            samples = buff[:sr.ret]
-
-            # Detect zero buffers
-            if np.all(samples == 0):
-                print("⚠️ ZERO BUFFER DETECTED")
-                return
-
-            # Use only FFT_SIZE samples for spectrum
-            samples = samples[:FFT_SIZE]
-            classify_one_chunk(samples, current_freq)
-
-        current_freq += SAMPLE_RATE
-
-
-# -----------------------------
-# DEVICE SETUP
-# -----------------------------
-print("[INFO] Opening HackRF...")
-sdr = SoapySDR.Device(dict(driver="hackrf"))
-
-sdr.setSampleRate(SOAPY_SDR_RX, 0, SAMPLE_RATE)
-
-sdr.setGain(SOAPY_SDR_RX, 0, False)
-sdr.setGain(SOAPY_SDR_RX, 0, "LNA", 32)
-sdr.setGain(SOAPY_SDR_RX, 0, "VGA", 32)
-
-rxStream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)
-sdr.activateStream(rxStream)
-
-buff = np.empty(BUFFER_SIZE, np.complex64)
-
-print("Monitoring 5840 MHz...")
-
-while True:
-    main()
+    print_spectrum_bar(avg_power)
