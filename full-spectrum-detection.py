@@ -6,8 +6,7 @@ from datetime import datetime
 import time
 
 # TODO
-# remove center dc spike
-# fix cluster width detection logic
+# fix cluster width detection logic -> allow gaps
 # fix demodulation peak detection logic
 # add average from previous scans
 # clean code
@@ -22,8 +21,8 @@ import time
 # -----------------------------
 # PARAMETERS
 # -----------------------------
-MIN_FREQ = 5800e6
-MAX_FREQ = 6000e6
+MIN_FREQ = 5820e6
+MAX_FREQ = 5870e6
 SAMPLE_RATE = 20e6
 GAIN = 35
 FFT_SIZE = 8192
@@ -34,7 +33,7 @@ EXPECTED_BW_MHZ = 8 # expected video width (6–8 MHz typical)
 THRESHOLD_DB = 3 # bins must be 6 dB above noise floor
 MIN_CLUSTER_MHZ = 1.5 # minimum cluster size to consider real
 
-WIDE_SAMPLING_NUM = 10
+WIDE_SAMPLING_NUM = 20
 
 LOG_DIR = "logs"
 
@@ -135,12 +134,17 @@ def classify_one_chunk(samples, hrf_center_freq):
     # Filter clusters by minimum bandwidth
     valid_clusters = []
     for cluster in clusters:
-        bw_bins = cluster[-1] - cluster[0]
+        bw_bins = cluster[-1] - cluster[0] + 1
         bw_mhz = (bw_bins / FFT_SIZE) * SAMPLE_RATE / 1e6
 
         if bw_mhz >= MIN_CLUSTER_MHZ:
             valid_clusters.append((cluster, bw_mhz))
 
+    # print(f"Active bins: {len(active_bins)}; Vector: {active_bins}")
+    # print(f"Clusters: {len(clusters)}")
+    # for c in clusters:
+    #     print(f"Cluster size: {len(c)}; cluster: {c}")
+    
     if valid_clusters:
         largest_cluster, occupied_bw = max(valid_clusters, key=lambda x: x[1])
         center_bin = int(np.mean(largest_cluster))

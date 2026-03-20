@@ -84,6 +84,6 @@ while True:
     if ratio > THRESHOLD:
         print(">>> ANALOG VIDEO DETECTED <<<")
 
-    time.sleep(0.1)
+    # time.sleep(0.05)
 
     
