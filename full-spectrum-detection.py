@@ -6,15 +6,14 @@ from datetime import datetime
 import time
 
 # TODO
-# fix cluster width detection logic -> allow gaps
+# fix cluster width detection logic -> allow gaps DONE
 # fix demodulation peak detection logic
 # add average from previous scans
 # clean code
 # make an application
-# fix logging (log all events, basically move from console to a log file)
+# fix logging (log all events, basically move from console to a log file) DONE
 # introduce overlap, adaptive thresholds, confidence over time
-#
-#
+# add threading as we are getting stuck at computationally heavy bits (2.4)
 
 # -----------------------------
 # PARAMETERS
@@ -48,7 +47,7 @@ MERGE_GAP_MHZ = 2.0     # max gap to merge lobes
 BIN_TO_MHZ = SAMPLE_RATE / FFT_SIZE / 1e6
 MERGE_GAP_BINS = int(MERGE_GAP_MHZ / BIN_TO_MHZ)
 
-REQUIRED_RATIO = 0.8
+REQUIRED_RATIO = 0.3
 REQUIRED_HITS = int(WIDE_SAMPLING_NUM * REQUIRED_RATIO)
 
 avg_power = None
