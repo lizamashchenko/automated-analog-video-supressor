@@ -16,7 +16,7 @@ FFT_SIZE = 8192
 BUFFER_SIZE = 65536
 ALPHA = 0.2
 
-MIN_CLUSTER_MHZ = 1.5
+MIN_CLUSTER_MHZ = 2.5
 
 EDGE_DROP_DB = 2        # how far from peak to expand
 PEAK_THRESHOLD_DB = 3   # above noise to consider peak

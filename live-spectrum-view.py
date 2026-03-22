@@ -1,92 +1,132 @@
 import SoapySDR
 from SoapySDR import *
 import numpy as np
+import pyqtgraph as pg
+from pyqtgraph.Qt import QtWidgets, QtCore
+import threading
+import queue
+import sys
 import time
-import matplotlib.pyplot as plt
 
+# -----------------------------
+# CONFIG
+# -----------------------------
+SAMPLE_RATE = 10e6
+FFT_SIZE = 4096
 
-# --------------------
-# Device setup
-# --------------------
-print("[INFO] Opening HackRF...")
+START_FREQ = 1e9
+STOP_FREQ = 6e9
+STEP = SAMPLE_RATE * 0.6
+
+# generate sweep frequencies
+freq_list = np.arange(START_FREQ, STOP_FREQ, STEP)
+
+# -----------------------------
+# SDR INIT
+# -----------------------------
 sdr = SoapySDR.Device(dict(driver="hackrf"))
 
-sdr.setSampleRate(SOAPY_SDR_RX, 0, 20e6)
-sdr.setGain(SOAPY_SDR_RX, 0, 32)
+sdr.setSampleRate(SOAPY_SDR_RX, 0, SAMPLE_RATE)
+sdr.setBandwidth(SOAPY_SDR_RX, 0, SAMPLE_RATE)
 
-stream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)
-sdr.activateStream(stream)
+sdr.setGain(SOAPY_SDR_RX, 0, "LNA", 32)
+sdr.setGain(SOAPY_SDR_RX, 0, "VGA", 24)
 
-# --------------------
-# Sweep config
-# --------------------
-f_start = 5e9
-f_stop  = 6e9
-step    = 10e6
-fft_size = 4096
+rxStream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)
+sdr.activateStream(rxStream)
 
-freqs = np.arange(f_start, f_stop, step)
+time.sleep(0.2)
 
-# --------------------
-# Plot setup
-# --------------------
-plt.ion()
-fig, ax = plt.subplots()
-line, = ax.plot(freqs/1e6, np.zeros(len(freqs)))
+# -----------------------------
+# QUEUE
+# -----------------------------
+q = queue.Queue(maxsize=100)
 
-ax.set_xlabel("Frequency (MHz)")
-ax.set_ylabel("Power (dB)")
-ax.set_title("HackRF Wideband Sweep")
-ax.set_ylim(-140, 0)
-ax.grid(True)
+# -----------------------------
+# SDR THREAD (SCANNER)
+# -----------------------------
+def sdr_worker():
+    buff = np.zeros(FFT_SIZE, dtype=np.complex64)
+    window = np.hanning(FFT_SIZE)
 
-plt.show()
+    while True:
+        for f in freq_list:
+            sdr.setFrequency(SOAPY_SDR_RX, 0, f)
 
+            time.sleep(0.002)  # allow LO settle
 
-buff = np.empty(fft_size, np.complex64)
+            sr = sdr.readStream(rxStream, [buff], FFT_SIZE, timeoutUs=100000)
 
-print(f"[INFO] Sweep bins: {len(freqs)}")
-print("[INFO] Starting sweep loop...\n")
+            if sr.ret > 0:
+                samples = buff.copy()
 
-# --------------------
-# Sweep loop
-# --------------------
-sweep_id = 0
+                # DC removal
+                samples -= np.mean(samples)
 
-while True:
-    sweep_id += 1
-    powers = []
+                samples *= window
 
-    t0 = time.time()
+                fft = np.fft.fftshift(np.fft.fft(samples))
+                power = 10 * np.log10((np.abs(fft) ** 2) / FFT_SIZE + 1e-12)
 
-    for f in freqs:
-        sdr.setFrequency(SOAPY_SDR_RX, 0, float(f))
+                # frequency axis for this chunk
+                freqs = np.fft.fftshift(np.fft.fftfreq(FFT_SIZE, 1 / SAMPLE_RATE))
+                freqs = freqs + f
 
-        sr = sdr.readStream(
-            stream,
-            [buff],
-            fft_size,
-            timeoutUs=500000
-        )
+                try:
+                    q.put_nowait((freqs, power))
+                except queue.Full:
+                    q.get_nowait()
+                    q.put_nowait((freqs, power))
 
-        if sr.ret > 0:
-            # simple power estimate
-            fft = np.fft.fftshift(np.fft.fft(buff))
-            p = 20 * np.log10(np.mean(np.abs(fft)) + 1e-12)
+threading.Thread(target=sdr_worker, daemon=True).start()
 
-            powers.append(p)
-        else:
-            powers.append(-200.0)
+# -----------------------------
+# GUI
+# -----------------------------
+app = QtWidgets.QApplication(sys.argv)
 
-    t1 = time.time()
+win = pg.GraphicsLayoutWidget(title="Wideband Scanner")
+plot = win.addPlot(title="Spectrum")
+curve = plot.plot(pen='y')
 
-    powers = np.array(powers)
+plot.setLabel('left', 'Power', 'dB')
+plot.setLabel('bottom', 'Frequency', 'GHz')
 
-    # --------------------
-    # Update plot
-    # --------------------
-    line.set_ydata(powers)
-    ax.set_title(f"HackRF Wideband Sweep | Sweep {sweep_id} | {t1 - t0:.2f}s")
-    fig.canvas.draw()
-    fig.canvas.flush_events()
+plot.setYRange(-100, -30)
 
+win.show()
+
+# -----------------------------
+# STITCH BUFFER
+# -----------------------------
+# global frequency grid
+global_freqs = np.linspace(START_FREQ, STOP_FREQ, 20000)
+global_power = np.ones_like(global_freqs) * -120
+
+# -----------------------------
+# UPDATE LOOP
+# -----------------------------
+def update():
+    global global_power
+
+    updated = False
+
+    while not q.empty():
+        freqs, power = q.get()
+
+        # interpolate chunk onto global grid
+        interp = np.interp(global_freqs, freqs, power)
+
+        # max-hold (important for scanning)
+        global_power = np.maximum(global_power, interp)
+
+        updated = True
+
+    if updated:
+        curve.setData(global_freqs / 1e9, global_power)
+
+timer = QtCore.QTimer()
+timer.timeout.connect(update)
+timer.start(50)
+
+sys.exit(app.exec())

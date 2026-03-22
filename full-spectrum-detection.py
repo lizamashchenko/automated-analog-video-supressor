@@ -15,14 +15,12 @@ import time
 # introduce overlap, adaptive thresholds, confidence over time
 #
 #
-#
-
 
 # -----------------------------
 # PARAMETERS
 # -----------------------------
-MIN_FREQ = 5820e6
-MAX_FREQ = 5870e6
+MIN_FREQ = 1000e6
+MAX_FREQ = 6000e6
 SAMPLE_RATE = 20e6
 GAIN = 35
 FFT_SIZE = 8192
@@ -31,11 +29,27 @@ ALPHA = 0.2 # FFT averaging factor
 
 EXPECTED_BW_MHZ = 8 # expected video width (6–8 MHz typical)
 THRESHOLD_DB = 3 # bins must be 6 dB above noise floor
-MIN_CLUSTER_MHZ = 1.5 # minimum cluster size to consider real
+MIN_CLUSTER_MHZ = 2.5 # minimum cluster size to consider real
+MAX_CLUSTER_MHZ = 10
 
 WIDE_SAMPLING_NUM = 20
 
-LOG_DIR = "logs"
+BASE_LOG_DIR = "logs"
+
+RUN_ID = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+LOG_DIR = os.path.join(BASE_LOG_DIR, RUN_ID)
+
+EDGE_DROP_DB = 2        # how far from peak to expand
+PEAK_THRESHOLD_DB = 3   # above noise to consider peak
+MIN_LOBE_MHZ = 0.5      # minimum lobe size
+MERGE_GAP_MHZ = 2.0     # max gap to merge lobes
+
+# Precompute bin conversion
+BIN_TO_MHZ = SAMPLE_RATE / FFT_SIZE / 1e6
+MERGE_GAP_BINS = int(MERGE_GAP_MHZ / BIN_TO_MHZ)
+
+REQUIRED_RATIO = 0.8
+REQUIRED_HITS = int(WIDE_SAMPLING_NUM * REQUIRED_RATIO)
 
 avg_power = None
 baseband_candidates = []
@@ -45,22 +59,61 @@ baseband_candidates = []
 # -----------------------------
 os.makedirs(LOG_DIR, exist_ok=True)
 
-POSSIBLE_LOG = os.path.join(LOG_DIR, "possible_detections.log")
+GENERAL_LOG = os.path.join(LOG_DIR, "events.log")
+POSSIBLE_PLATEU_LOG = os.path.join(LOG_DIR, "possible_plateu.log")
+CONFIRMED_PLATEU_LOG = os.path.join(LOG_DIR, "confirmed_plateu.log")
 VIDEO_LOG = os.path.join(LOG_DIR, "video_detections.log")
 
-def log_detection(file, freq, bw, noise, pos_peak, neg_peak, sync):
+
+def log_event(event_type, message, **kwargs):
+    """
+    General structured logger
+    """
     timestamp = datetime.utcnow().isoformat()
 
-    with open(file, "a") as f:
-        f.write(
-        f"{timestamp},"
-        f"{freq:.3f},"
-        f"{bw:.3f},"
-        f"{noise:.2f},"
-        f"{pos_peak:.2f},"
-        f"{neg_peak:.2f},"
-        f"{int(sync)}\n"
-    )
+    extra = ",".join(f"{k}={v}" for k, v in kwargs.items())
+
+    line = f"{timestamp},{event_type},{message}"
+    if extra:
+        line += "," + extra
+
+    with open(GENERAL_LOG, "a") as f:
+        f.write(line + "\n")
+
+def log_possible_plateau(freq, bw, bin):
+    with open(POSSIBLE_PLATEU_LOG, "a") as f:
+        f.write(f"{datetime.utcnow().isoformat()},{freq:.3f},{bw:.3f},{bin}\n")
+
+
+def log_confirmed_plateau(freq, bw, hits):
+    with open(CONFIRMED_PLATEU_LOG, "a") as f:
+        f.write(f"{datetime.utcnow().isoformat()},{freq:.3f},{bw:.3f},{hits}\n")
+
+
+def log_video_detection(freq, pos_peak, neg_peak):
+    with open(VIDEO_LOG, "a") as f:
+        f.write(f"{datetime.utcnow().isoformat()},{freq:.3f},{pos_peak:.2f},{neg_peak:.2f}\n")
+
+
+# os.makedirs(LOG_DIR, exist_ok=True)
+
+# POSSIBLE_CLUSTER_LOG = os.path.join(LOG_DIR, "possible_clusters.log")
+# POSSIBLE_PLATEU_LOG = os.path.join(LOG_DIR, "possible_plateu.log")
+# VIDEO_LOG = os.path.join(LOG_DIR, "video_detections.log")
+
+# def log_detection(file, freq, bw, noise, pos_peak, neg_peak, sync):
+#     timestamp = datetime.utcnow().isoformat()
+
+#     with open(file, "a") as f:
+#         f.write(
+#         f"{timestamp},"
+#         f"{freq:.3f},"
+#         f"{bw:.3f},"
+#         f"{noise:.2f},"
+#         f"{pos_peak:.2f},"
+#         f"{neg_peak:.2f},"
+#         f"{int(sync)}\n"
+#     )
 
 def fm_demod(iq):
     """
@@ -88,12 +141,107 @@ def print_spectrum_bar(avg_power, center_freq, bins=80):
     print(line)
     print(f"{(center_freq - SAMPLE_RATE/2) / 1e6} \t\t\t\t\t\t\t\t\t {(center_freq + SAMPLE_RATE/2) / 1e6}")
 
-def classify_one_chunk(samples, hrf_center_freq):
+# def detect_clusters(bins):
+#     clusters = []
+
+#     if len(bins) > 0:
+#         current_cluster = [bins[0]]
+
+#         for i in range(1, len(bins)):
+#             if bins[i] == bins[i - 1] + 1:
+#                 current_cluster.append(bins[i])
+#             else:
+#                 clusters.append(current_cluster)
+#                 current_cluster = [bins[i]]
+
+#         clusters.append(current_cluster)
+
+#     # Filter clusters by minimum bandwidth
+#     valid_clusters = []
+#     for cluster in clusters:
+#         bw_bins = cluster[-1] - cluster[0] + 1
+#         bw_mhz = (bw_bins / FFT_SIZE) * SAMPLE_RATE / 1e6
+
+#         if bw_mhz >= MIN_CLUSTER_MHZ:
+#             valid_clusters.append((cluster, bw_mhz))
+
+#     return valid_clusters
+
+
+def detect_clusters(data, noise_level):
+    # ---- 1. Find peaks ----
+    peak_indices = np.where(
+        (data[1:-1] > data[:-2]) &
+        (data[1:-1] > data[2:]) &
+        (data[1:-1] > noise_level + PEAK_THRESHOLD_DB)
+    )[0] + 1
+
+    clusters = []
+    edge_threshold = noise_level + EDGE_DROP_DB
+
+    # ---- 2. Expand peaks ----
+    for peak_idx in peak_indices:
+        left = peak_idx
+        while left > 0 and data[left] > edge_threshold:
+            left -= 1
+
+        right = peak_idx
+        while right < len(data)-1 and data[right] > edge_threshold:
+            right += 1
+
+        clusters.append((left, right))
+
+    # ---- 3. Filter small lobes ----
+    filtered = []
+    for left, right in clusters:
+        bw_bins = right - left + 1
+        bw_mhz = bw_bins * BIN_TO_MHZ
+
+        if bw_mhz >= MIN_LOBE_MHZ:
+            filtered.append((left, right))
+
+    # ---- 4. Merge nearby lobes ----
+    merged = []
+    if filtered:
+        filtered.sort()
+        cur_left, cur_right = filtered[0]
+
+        for left, right in filtered[1:]:
+            if left - cur_right <= MERGE_GAP_BINS:
+                cur_right = max(cur_right, right)
+            else:
+                merged.append((cur_left, cur_right))
+                cur_left, cur_right = left, right
+
+        merged.append((cur_left, cur_right))
+
+    # ---- 5. Final selection ----
+    valid_clusters = []
+    for left, right in merged:
+        bw_bins = right - left + 1
+        bw_mhz = bw_bins * BIN_TO_MHZ
+
+        if bw_mhz >= MIN_CLUSTER_MHZ:
+            valid_clusters.append((left, right, bw_mhz))
+
+    # ---- DEBUG ----
+    print("\n------------------------------")
+    print(f"Noise floor: {noise_level:.1f} dB")
+    print(f"Peaks found: {len(peak_indices)}")
+    print(f"Lobes: {len(filtered)}")
+    print(f"Merged clusters: {len(merged)}")
+
+    return valid_clusters
+
+def detect_plateus(samples, hrf_center_freq):
     global avg_power
 
     window = np.hanning(len(samples))
     spectrum = np.fft.fftshift(np.fft.fft(samples * window))
     power = 20 * np.log10(np.abs(spectrum) + 1e-12)
+
+    center = len(power) // 2
+    power[center-5:center+5] = np.median(power)
 
     # Averaging like GQRX
     if avg_power is None:
@@ -111,60 +259,115 @@ def classify_one_chunk(samples, hrf_center_freq):
         FFT_SIZE
     )
 
-    noise_floor = np.median(avg_power)
-    threshold = noise_floor + THRESHOLD_DB
+    smoothed = np.convolve(avg_power, np.ones(3)/3, mode='same')
+    noise_floor = np.median(smoothed)
 
-    # Find bins above threshold
-    active_bins = np.where(avg_power > threshold)[0]
-
-    clusters = []
-
-    if len(active_bins) > 0:
-        current_cluster = [active_bins[0]]
-
-        for i in range(1, len(active_bins)):
-            if active_bins[i] == active_bins[i-1] + 1:
-                current_cluster.append(active_bins[i])
-            else:
-                clusters.append(current_cluster)
-                current_cluster = [active_bins[i]]
-
-        clusters.append(current_cluster)
-
-    # Filter clusters by minimum bandwidth
-    valid_clusters = []
-    for cluster in clusters:
-        bw_bins = cluster[-1] - cluster[0] + 1
-        bw_mhz = (bw_bins / FFT_SIZE) * SAMPLE_RATE / 1e6
-
-        if bw_mhz >= MIN_CLUSTER_MHZ:
-            valid_clusters.append((cluster, bw_mhz))
-
-    # print(f"Active bins: {len(active_bins)}; Vector: {active_bins}")
-    # print(f"Clusters: {len(clusters)}")
-    # for c in clusters:
-    #     print(f"Cluster size: {len(c)}; cluster: {c}")
-    
+    valid_clusters = detect_clusters(smoothed, noise_floor)
+   
     if valid_clusters:
-        largest_cluster, occupied_bw = max(valid_clusters, key=lambda x: x[1])
-        center_bin = int(np.mean(largest_cluster))
-        center_freq = freqs[center_bin] / 1e6
+        left, right, occupied_bw = max(valid_clusters, key=lambda x: x[2])
+        center_bin = (left + right) // 2
+        center_freq = freqs[center_bin]
+        
+        log_possible_plateau(center_freq, occupied_bw, center_bin)
+        log_event(
+            "POSSIBLE_PLATEAU_HIT",
+            "Detected candidate",
+            freq=center_freq,
+            bw=occupied_bw,
+            bin=center_bin
+        )
+
+        return occupied_bw, center_freq
+    
     else:
-        occupied_bw = 0
-        center_freq = 0
+        return 0, 0
 
-    print("\n------------------------------")
-    print(f"Noise floor: {noise_floor:.1f} dB")
-    print(f"Threshold: {threshold:.1f} dB")
+# -----------------------------
+# MAIN LOOP
+# -----------------------------
+def main():
+    global avg_power
+    current_freq = MIN_FREQ
+    demod_data = []
 
-    if occupied_bw > 0:
+    # coarse plateu scan
+    while current_freq < MAX_FREQ:
+        sdr.setFrequency(SOAPY_SDR_RX, 0, current_freq)
+        avg_power = None
+
+        detections = []
+
+        for i in range(WIDE_SAMPLING_NUM):
+            sr = sdr.readStream(rxStream, [buff], BUFFER_SIZE)
+
+            if sr.ret <= 0:
+                print("Stream error:", sr.ret)
+                log_event(
+                    "STREAM_ERROR",
+                    "ReadStream failed",
+                    code=sr.ret
+                )
+                continue
+
+            samples = buff[:sr.ret]
+
+            if np.all(samples == 0):
+                print("⚠️ ZERO BUFFER DETECTED")
+                log_event(
+                    "ZERO_BUFFER",
+                    "All samples are zero",
+                    freq=current_freq
+                )
+                continue
+
+            samples = samples[:FFT_SIZE]
+            res_width, res_center = detect_plateus(samples, current_freq)
+            
+            print_spectrum_bar(avg_power, current_freq)
+
+            if res_width != 0:
+                detections.append((samples, res_width, res_center))
+
+
+        if len(detections) < REQUIRED_HITS:
+            current_freq += SAMPLE_RATE
+
+            if (len(detections) != 0):
+                log_event(
+                    "PLATEAU_REJECTED",
+                    "Not enough hits",
+                    hits=len(detections),
+                    required=REQUIRED_HITS,
+                    freq=current_freq
+                )
+            continue
+
+        samples_list = [d[0] for d in detections]
+        bw_list = [d[1] for d in detections]
+        freq_list = [d[2] for d in detections]
+
+        samples = np.mean(samples_list, axis=0)
+        occupied_bw = np.max(bw_list)
+        center_freq = np.median(freq_list)
+
+        log_confirmed_plateau(center_freq, occupied_bw, len(detections))
+        log_event(
+            "PLATEAU_CONFIRMED",
+            "Wideband signal detected",
+            freq=center_freq,
+            bw=occupied_bw,
+            hits=len(detections)
+        )
+        demod_data.append((samples, center_freq))
+
         print(f"Detected signal bandwidth: {occupied_bw:.2f} MHz")
         print(f"Detected center frequency: {center_freq:.2f} MHz")
-        # --------------------------------
-        # FM DEMODULATION CHECK
-        # --------------------------------
+        print(f"Number of hits: {len(detections):.2f} MHz")
 
-        demod = fm_demod(samples)
+    # Demodulation check for each platue
+    for plateu_samples, plateu_center in detections:
+        demod = fm_demod(plateu_samples)
 
         # FFT of demodulated signal
         demod_fft = np.fft.fftshift(np.fft.fft(demod * np.hanning(len(demod))))
@@ -189,66 +392,28 @@ def classify_one_chunk(samples, hrf_center_freq):
         print(f"FM sync +15kHz peak: {pos_energy:.1f} dB")
         print(f"FM sync -15kHz peak: {neg_energy:.1f} dB")
 
-        log_detection(
-            POSSIBLE_LOG,
-            center_freq,
-            occupied_bw,
-            noise_floor,
-            pos_energy,
-            neg_energy,
-            sync_detected
-        )
-
         if sync_detected:
-            print(">>> ANALOG VIDEO SYNC DETECTED <<<")
-            log_detection(
-                VIDEO_LOG,
-                center_freq,
-                occupied_bw,
-                noise_floor,
-                pos_energy,
-                neg_energy,
-                True
+            log_video_detection(plateu_center, pos_energy, neg_energy)
+
+            log_event(
+                "VIDEO_DETECTED",
+                "Analog video confirmed",
+                freq=plateu_center,
+                pos_peak=pos_energy,
+                neg_peak=neg_energy
             )
 
         else:
             print("Wideband signal but no video sync")
+            log_event(
+                "VIDEO_REJECTED",
+                "No sync detected",
+                freq=plateu_center
+            )
     else:
         print("No wideband signal detected")
 
     print("------------------------------")
-    print_spectrum_bar(avg_power, hrf_center_freq)
-
-# -----------------------------
-# MAIN LOOP
-# -----------------------------
-def main():
-    global avg_power
-    current_freq = MIN_FREQ
-
-    while current_freq < MAX_FREQ:
-        sdr.setFrequency(SOAPY_SDR_RX, 0, current_freq)
-        avg_power = None
-
-        for i in range(WIDE_SAMPLING_NUM):
-            sr = sdr.readStream(rxStream, [buff], BUFFER_SIZE)
-
-            if sr.ret <= 0:
-                print("Stream error:", sr.ret)
-                return
-
-            samples = buff[:sr.ret]
-
-            # Detect zero buffers
-            if np.all(samples == 0):
-                print("⚠️ ZERO BUFFER DETECTED")
-                return
-
-            # Use only FFT_SIZE samples for spectrum
-            samples = samples[:FFT_SIZE]
-            classify_one_chunk(samples, current_freq)
-
-        current_freq += SAMPLE_RATE
 
 # -----------------------------
 # DEVICE SETUP
