@@ -10,9 +10,9 @@ import time
 # -----------------------------
 # PARAMETERS
 # -----------------------------
-CENTER_FREQ = 5840e6
+CENTER_FREQ = 2320e6
 SAMPLE_RATE = 20e6
-FFT_SIZE = 8192
+FFT_SIZE = 4096
 BUFFER_SIZE = 65536
 ALPHA = 0.2
 

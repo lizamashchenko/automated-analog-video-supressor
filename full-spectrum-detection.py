@@ -4,6 +4,11 @@ import numpy as np
 import os
 from datetime import datetime
 import time
+from queue import Queue, Full, Empty
+import threading
+
+sample_queue = Queue(maxsize=100)
+freq_lock = threading.Lock()
 
 # TODO
 # fix cluster width detection logic -> allow gaps DONE
@@ -13,7 +18,7 @@ import time
 # make an application
 # fix logging (log all events, basically move from console to a log file) DONE
 # introduce overlap, adaptive thresholds, confidence over time
-# add threading as we are getting stuck at computationally heavy bits (2.4)
+# add threading as we are getting stuck at computationally heavy bits (2.4) DONE BUG FIX
 
 # -----------------------------
 # PARAMETERS
@@ -21,8 +26,7 @@ import time
 MIN_FREQ = 1000e6
 MAX_FREQ = 6000e6
 SAMPLE_RATE = 20e6
-GAIN = 35
-FFT_SIZE = 8192
+FFT_SIZE = 4096
 BUFFER_SIZE = 262144 # Large buffer prevents underruns
 ALPHA = 0.2 # FFT averaging factor
 
@@ -31,7 +35,7 @@ THRESHOLD_DB = 3 # bins must be 6 dB above noise floor
 MIN_CLUSTER_MHZ = 2.5 # minimum cluster size to consider real
 MAX_CLUSTER_MHZ = 10
 
-WIDE_SAMPLING_NUM = 20
+WIDE_SAMPLING_NUM = 10
 
 BASE_LOG_DIR = "logs"
 
@@ -39,7 +43,7 @@ RUN_ID = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
 LOG_DIR = os.path.join(BASE_LOG_DIR, RUN_ID)
 
 EDGE_DROP_DB = 2        # how far from peak to expand
-PEAK_THRESHOLD_DB = 3   # above noise to consider peak
+PEAK_THRESHOLD_DB = 4   # above noise to consider peak
 MIN_LOBE_MHZ = 0.5      # minimum lobe size
 MERGE_GAP_MHZ = 2.0     # max gap to merge lobes
 
@@ -49,6 +53,8 @@ MERGE_GAP_BINS = int(MERGE_GAP_MHZ / BIN_TO_MHZ)
 
 REQUIRED_RATIO = 0.3
 REQUIRED_HITS = int(WIDE_SAMPLING_NUM * REQUIRED_RATIO)
+
+MAX_ERRORS = 5 
 
 avg_power = None
 baseband_candidates = []
@@ -93,26 +99,16 @@ def log_video_detection(freq, pos_peak, neg_peak):
     with open(VIDEO_LOG, "a") as f:
         f.write(f"{datetime.utcnow().isoformat()},{freq:.3f},{pos_peak:.2f},{neg_peak:.2f}\n")
 
+def reset_stream():
+    global rxStream
+    try:
+        sdr.deactivateStream(rxStream)
+        sdr.closeStream(rxStream)
+    except:
+        pass
 
-# os.makedirs(LOG_DIR, exist_ok=True)
-
-# POSSIBLE_CLUSTER_LOG = os.path.join(LOG_DIR, "possible_clusters.log")
-# POSSIBLE_PLATEU_LOG = os.path.join(LOG_DIR, "possible_plateu.log")
-# VIDEO_LOG = os.path.join(LOG_DIR, "video_detections.log")
-
-# def log_detection(file, freq, bw, noise, pos_peak, neg_peak, sync):
-#     timestamp = datetime.utcnow().isoformat()
-
-#     with open(file, "a") as f:
-#         f.write(
-#         f"{timestamp},"
-#         f"{freq:.3f},"
-#         f"{bw:.3f},"
-#         f"{noise:.2f},"
-#         f"{pos_peak:.2f},"
-#         f"{neg_peak:.2f},"
-#         f"{int(sync)}\n"
-#     )
+    rxStream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)
+    sdr.activateStream(rxStream)
 
 def fm_demod(iq):
     """
@@ -139,33 +135,6 @@ def print_spectrum_bar(avg_power, center_freq, bins=80):
     line = "".join(bars[int(s*7)] for s in scaled)
     print(line)
     print(f"{(center_freq - SAMPLE_RATE/2) / 1e6} \t\t\t\t\t\t\t\t\t {(center_freq + SAMPLE_RATE/2) / 1e6}")
-
-# def detect_clusters(bins):
-#     clusters = []
-
-#     if len(bins) > 0:
-#         current_cluster = [bins[0]]
-
-#         for i in range(1, len(bins)):
-#             if bins[i] == bins[i - 1] + 1:
-#                 current_cluster.append(bins[i])
-#             else:
-#                 clusters.append(current_cluster)
-#                 current_cluster = [bins[i]]
-
-#         clusters.append(current_cluster)
-
-#     # Filter clusters by minimum bandwidth
-#     valid_clusters = []
-#     for cluster in clusters:
-#         bw_bins = cluster[-1] - cluster[0] + 1
-#         bw_mhz = (bw_bins / FFT_SIZE) * SAMPLE_RATE / 1e6
-
-#         if bw_mhz >= MIN_CLUSTER_MHZ:
-#             valid_clusters.append((cluster, bw_mhz))
-
-#     return valid_clusters
-
 
 def detect_clusters(data, noise_level):
     # ---- 1. Find peaks ----
@@ -281,7 +250,27 @@ def detect_plateus(samples, hrf_center_freq):
     
     else:
         return 0, 0
+    
+def sdr_reader():
+    global buff
 
+    while True:
+        sr = sdr.readStream(rxStream, [buff], BUFFER_SIZE)
+
+        if sr.ret > 0:
+            samples = buff[:sr.ret].copy()
+
+            try:
+                sample_queue.put(samples, timeout=0.01)
+            except Full:
+                try:
+                    sample_queue.get_nowait()
+                    sample_queue.put(samples, timeout=0.01)
+                except:
+                    pass
+        else:
+            print("Stream error:", sr.ret)
+            log_event("STREAM_ERROR", "ReadStream failed", code=sr.ret)
 # -----------------------------
 # MAIN LOOP
 # -----------------------------
@@ -292,24 +281,23 @@ def main():
 
     # coarse plateu scan
     while current_freq < MAX_FREQ:
-        sdr.setFrequency(SOAPY_SDR_RX, 0, current_freq)
-        avg_power = None
+        with freq_lock:
+            sdr.setFrequency(SOAPY_SDR_RX, 0, current_freq)
+            while not sample_queue.empty():
+                try:
+                    sample_queue.get_nowait()
+                except:
+                    break
 
+        avg_power = None
         detections = []
 
         for i in range(WIDE_SAMPLING_NUM):
-            sr = sdr.readStream(rxStream, [buff], BUFFER_SIZE)
-
-            if sr.ret <= 0:
-                print("Stream error:", sr.ret)
-                log_event(
-                    "STREAM_ERROR",
-                    "ReadStream failed",
-                    code=sr.ret
-                )
+            try:
+                samples = sample_queue.get(timeout=0.1)
+            except:
+                i -= 1
                 continue
-
-            samples = buff[:sr.ret]
 
             if np.all(samples == 0):
                 print("⚠️ ZERO BUFFER DETECTED")
@@ -318,6 +306,7 @@ def main():
                     "All samples are zero",
                     freq=current_freq
                 )
+                i -= 1
                 continue
 
             samples = samples[:FFT_SIZE]
@@ -358,6 +347,8 @@ def main():
             bw=occupied_bw,
             hits=len(detections)
         )
+        current_freq += SAMPLE_RATE
+        
         demod_data.append((samples, center_freq))
 
         print(f"Detected signal bandwidth: {occupied_bw:.2f} MHz")
@@ -432,6 +423,8 @@ sdr.activateStream(rxStream)
 buff = np.empty(BUFFER_SIZE, np.complex64)
 
 print("Monitoring 5840 MHz...")
+reader_thread = threading.Thread(target=sdr_reader, daemon=True)
+reader_thread.start()
 
 while True:
     main()
