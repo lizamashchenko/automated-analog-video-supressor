@@ -18,7 +18,7 @@ ZOOM_BW = 20000             # Hz, ± zoom around sync for detailed plot
 # LOAD FILE
 # -----------------------------------
 if len(sys.argv) < 2:
-    print("Usage: python visualize_demod.py demod_file.bin")
+    print("Usage: python3 visualize_demod.py demod_file.bin")
     sys.exit(1)
 
 filename = sys.argv[1]
@@ -99,7 +99,21 @@ print(f"Peak strength above noise: {sync_strength:.2f} dB")
 # -----------------------------------
 # SPECTROGRAM
 # -----------------------------------
-f, t, Sxx = spectrogram(demod_ds, fs=fs_ds, nperseg=2048, noverlap=1024)
+n = len(demod_ds)
+
+if n < 8:
+    print("Not enough samples for spectrogram")
+else:
+    nperseg = min(256, n)   # adaptive window
+    noverlap = nperseg // 2
+
+    f, t, Sxx = spectrogram(
+        demod_ds,
+        fs=fs_ds,
+        nperseg=nperseg,
+        noverlap=noverlap
+    )
+
 plt.figure(figsize=(10,5))
 plt.title("Demod Spectrogram")
 plt.pcolormesh(t, f/1000, 10*np.log10(Sxx + 1e-12), shading='gouraud')

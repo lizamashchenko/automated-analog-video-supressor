@@ -12,13 +12,16 @@ freq_lock = threading.Lock()
 
 # TODO
 # fix cluster width detection logic -> allow gaps DONE
+# fix logging (log all events, basically move from console to a log file) DONE
+# add threading as we are getting stuck at computationally heavy bits (2.4) DONE BUG FIX
+# confidence over time DONE
+
 # fix demodulation peak detection logic
 # add average from previous scans
 # clean code
 # make an application
-# fix logging (log all events, basically move from console to a log file) DONE
-# introduce overlap, adaptive thresholds, confidence over time
-# add threading as we are getting stuck at computationally heavy bits (2.4) DONE BUG FIX
+# introduce overlap
+# adaptive thresholds 
 
 # -----------------------------
 # PARAMETERS
@@ -192,7 +195,6 @@ def detect_clusters(data, noise_level):
         if bw_mhz >= MIN_CLUSTER_MHZ:
             valid_clusters.append((left, right, bw_mhz))
 
-    # ---- DEBUG ----
     print("\n------------------------------")
     print(f"Noise floor: {noise_level:.1f} dB")
     print(f"Peaks found: {len(peak_indices)}")
@@ -271,6 +273,7 @@ def sdr_reader():
         else:
             print("Stream error:", sr.ret)
             log_event("STREAM_ERROR", "ReadStream failed", code=sr.ret)
+            
 # -----------------------------
 # MAIN LOOP
 # -----------------------------
