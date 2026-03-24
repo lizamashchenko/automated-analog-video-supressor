@@ -62,6 +62,13 @@ MAX_ERRORS = 5
 avg_power = None
 baseband_candidates = []
 
+video_history = {}
+
+HISTORY_LEN = 6
+HISTORY_THRESHOLD = 4
+
+FREQ_TOLERANCE = 2e6  # 2 MHz bucket
+
 # -----------------------------
 # LOGGING
 # -----------------------------
@@ -118,6 +125,9 @@ def fm_demod(iq):
     Simple complex FM discriminator
     """
     return np.angle(iq[1:] * np.conj(iq[:-1]))
+
+def get_freq_key(freq):
+    return int(freq / FREQ_TOLERANCE)
 
 def print_spectrum_bar(avg_power, center_freq, bins=80):
     """
@@ -281,6 +291,10 @@ def main():
     global avg_power
     current_freq = MIN_FREQ
     demod_data = []
+    plateau_map = {}
+    MAX_SAMPLES_PER_PLATEAU = 5
+    REQUIRED_VOTES = 3
+    FREQ_TOLERANCE = 2e6
 
     # coarse plateu scan
     while current_freq < MAX_FREQ:
@@ -334,13 +348,26 @@ def main():
                 )
             continue
 
+        # means we found a plateu
+        # should store in the map, last 5 of the samples from the loop above
+
         samples_list = [d[0] for d in detections]
         bw_list = [d[1] for d in detections]
         freq_list = [d[2] for d in detections]
 
-        samples = np.mean(samples_list, axis=0)
-        occupied_bw = np.max(bw_list)
         center_freq = np.median(freq_list)
+        occupied_bw = np.max(bw_list)
+
+        key = int(center_freq / FREQ_TOLERANCE)
+
+        if key not in plateau_map:
+            plateau_map[key] = []
+
+        for s in samples_list:
+            plateau_map[key].append(s)
+
+        # keep only last 5
+        plateau_map[key] = plateau_map[key][-MAX_SAMPLES_PER_PLATEAU:]
 
         log_confirmed_plateau(center_freq, occupied_bw, len(detections))
         log_event(
@@ -352,57 +379,84 @@ def main():
         )
         current_freq += SAMPLE_RATE
         
-        demod_data.append((samples, center_freq))
-
         print(f"Detected signal bandwidth: {occupied_bw:.2f} MHz")
         print(f"Detected center frequency: {center_freq:.2f} MHz")
         print(f"Number of hits: {len(detections):.2f} MHz")
 
-    # Demodulation check for each platue
-    for plateu_samples, plateu_center in detections:
-        demod = fm_demod(plateu_samples)
+    # Demodulation check for each platue we detected. we have 5 samples, at least 3/5 should return true on demod check
+    print("\n==== DEMOD CHECK ====")
 
-        # FFT of demodulated signal
-        demod_fft = np.fft.fftshift(np.fft.fft(demod * np.hanning(len(demod))))
-        demod_power = 20 * np.log10(np.abs(demod_fft) + 1e-12)
+    for key, samples_list in plateau_map.items():
 
-        demod_freqs = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, len(demod))
+        if len(samples_list) < MAX_SAMPLES_PER_PLATEAU:
+            continue
 
-        # Look around ±15 kHz
-        sync_band = 2000 # ±2 kHz window
-        target_freq = 15625 # PAL
+        votes = 0
 
-        pos_mask = (demod_freqs > target_freq - sync_band) & (demod_freqs < target_freq + sync_band)
-        neg_mask = (demod_freqs > -target_freq - sync_band) & (demod_freqs < -target_freq + sync_band)
+        # approximate center freq from key
+        center_freq = key * FREQ_TOLERANCE
 
-        pos_energy = np.max(demod_power[pos_mask])
-        neg_energy = np.max(demod_power[neg_mask])
+        for samples in samples_list:
 
-        base_noise = np.median(demod_power)
+            samples = samples[:FFT_SIZE]
 
-        sync_detected = (pos_energy - base_noise > 6) and (neg_energy - base_noise > 6)
+            # ---- DEMOD ----
+            demod = fm_demod(samples)
 
-        print(f"FM sync +15kHz peak: {pos_energy:.1f} dB")
-        print(f"FM sync -15kHz peak: {neg_energy:.1f} dB")
+            demod_fft = np.fft.fftshift(np.fft.fft(demod * np.hanning(len(demod))))
+            demod_power = 20 * np.log10(np.abs(demod_fft) + 1e-12)
 
-        if sync_detected:
-            log_video_detection(plateu_center, pos_energy, neg_energy)
+            demod_freqs = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, len(demod))
 
+            # ---- YOUR DETECTION ----
+            sync_band = 2000
+            target_freq = 15625
+            base_noise = np.median(demod_power)
+
+            harmonics = [1, 2, 3, 4]
+            harmonic_hits = 0
+
+            for h in harmonics:
+                f = h * target_freq
+
+                mask_pos = (demod_freqs > f - sync_band) & (demod_freqs < f + sync_band)
+                mask_neg = (demod_freqs > -f - sync_band) & (demod_freqs < -f + sync_band)
+
+                if np.any(mask_pos) and np.any(mask_neg):
+                    pos_e = np.mean(demod_power[mask_pos])
+                    neg_e = np.mean(demod_power[mask_neg])
+
+                    if (pos_e - base_noise > 5) and (neg_e - base_noise > 5):
+                        harmonic_hits += 1
+
+            main_mask = (np.abs(demod_freqs) > target_freq - sync_band) & \
+                        (np.abs(demod_freqs) < target_freq + sync_band)
+
+            main_energy = np.mean(demod_power[main_mask])
+
+            exclude_mask = (np.abs(demod_freqs) < 2000) | main_mask
+            rest_energy = np.mean(demod_power[~exclude_mask])
+
+            dominance = main_energy - rest_energy
+
+            if (harmonic_hits >= 3) and (dominance > 10):
+                votes += 1
+
+        print(f"[{center_freq/1e6:.1f} MHz] Votes: {votes}/{len(samples_list)}")
+
+        if votes >= REQUIRED_VOTES:
+            print("ANALOG VIDEO CONFIRMED")
+
+            log_video_detection(center_freq, votes, len(samples_list))
             log_event(
-                "VIDEO_DETECTED",
-                "Analog video confirmed",
-                freq=plateu_center,
-                pos_peak=pos_energy,
-                neg_peak=neg_energy
+                "VIDEO_CONFIRMED",
+                "Analog video detected",
+                freq=center_freq,
+                votes=votes
             )
 
         else:
-            print("Wideband signal but no video sync")
-            log_event(
-                "VIDEO_REJECTED",
-                "No sync detected",
-                freq=plateu_center
-            )
+            print("Rejected")
     else:
         print("No wideband signal detected")
 
