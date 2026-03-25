@@ -19,8 +19,8 @@ HISTORY_THRESHOLD = 5
 # -----------------------------
 # PARAMETERS
 # -----------------------------
-CENTER_FREQ = 2320e6
-# CENTER_FREQ = 5840e6
+# CENTER_FREQ = 2320e6
+CENTER_FREQ = 5840e6
 
 SAMPLE_RATE = 20e6
 FFT_SIZE = 4096
