@@ -15,7 +15,7 @@ FS_DECIM = SAMPLE_RATE / DECIMATION
 
 FFT_SIZE = 8192
 LINE_FREQ = 15625  # PAL (try 15734 for NTSC)
-THRESHOLD = 5
+THRESHOLD = 2
 
 # -----------------------------
 # INIT SDR

@@ -61,6 +61,8 @@ MIN_VIDEO_WIDTH = 2.5   # MHz
 FREQ_TOLERANCE = 2e6  # Hz
 MAX_SAMPLES_PER_PLATEAU = 5
 DEMOD_REQUIRED_HITS = 3
+CYCLOSTATIC_RATIO_THRESHOLD = 2.5
+CYCLOSTATIC_SCORE_THRESHOLD = 6
 
 # Logging
 BASE_LOG_DIR = "logs"
@@ -71,6 +73,7 @@ GENERAL_LOG = os.path.join(LOG_DIR, "events.log")
 POSSIBLE_PLATEU_LOG = os.path.join(LOG_DIR, "possible_plateu.log")
 CONFIRMED_PLATEU_LOG = os.path.join(LOG_DIR, "confirmed_plateu.log")
 VIDEO_LOG = os.path.join(LOG_DIR, "video_detections.log")
+CYCLO_DEBUG_LOG = os.path.join(LOG_DIR, "cyclo_debug.log")
 
 # Data structures
 class ScanState:
@@ -110,6 +113,13 @@ def log_confirmed_plateau(freq, bw, hits):
 def log_video_detection(freq, pos_peak, neg_peak):
     with open(VIDEO_LOG, "a") as f:
         f.write(f"{datetime.utcnow().isoformat()},{freq:.3f},{pos_peak:.2f},{neg_peak:.2f}\n")
+
+def log_cyclo_debug(center_freq, sample_idx, **kwargs):
+    line = f"{datetime.utcnow().isoformat()},{center_freq:.3f},{sample_idx}"
+    for k, v in kwargs.items():
+        line += f",{k}={v}"
+    with open(CYCLO_DEBUG_LOG, "a") as f:
+        f.write(line + "\n")
 
 def print_spectrum_bar(avg_power, center_freq, bins=80):
     # Reduce avg_power to 'bins' points
@@ -246,7 +256,7 @@ def fpv_detector():
         current_freq += SAMPLE_RATE
 
     # proceed to demodulation check
-    analyze_plateaus(state)
+    analyze_plateaus_cyclo(state)
     print("------------------------------")
 
 # Build spectrum
@@ -394,7 +404,7 @@ def update_plateau_map(state, plateau):
     
 # Demodulate and fit to NTSC/PAL video
 
-def analyze_plateaus(state):
+def analyze_plateaus_cyclo(state):
     for key, samples_list in state.plateau_map.items():
 
         if len(samples_list) < MAX_SAMPLES_PER_PLATEAU:
@@ -403,44 +413,86 @@ def analyze_plateaus(state):
         votes = 0
         center_freq = key * FREQ_TOLERANCE
 
-        for samples in samples_list:
+        for i, samples in enumerate(samples_list):
             samples = samples[:FFT_SIZE]
 
-            demod = fm_demod(samples)
-            demod_fft = np.fft.fftshift(np.fft.fft(demod * np.hanning(len(demod))))
-            demod_power = 20 * np.log10(np.abs(demod_fft) + 1e-12)
-            demod_freqs = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, len(demod))
+            # -----------------------------
+            # DECIMATE
+            # -----------------------------
+            iq = samples
+            fs_decim = SAMPLE_RATE / 10
 
-            base_noise = np.median(demod_power)
+            # -----------------------------
+            # FM DISCRIMINATOR
+            # -----------------------------
+            inst_freq = np.angle(iq[1:] * np.conj(iq[:-1]))
+            inst_freq -= np.mean(inst_freq)
+
+            N = len(inst_freq)
+
+            if N < 128:   # just a safety floor
+                log_cyclo_debug(center_freq, i, "too_short", length=N)
+                continue
+
+            x = inst_freq * np.hanning(N)
+
+            S = np.fft.fft(x)
+            freqs = np.fft.fftfreq(N, 1/fs_decim)
+            S_mag = np.abs(S)
+            S_mag = np.abs(S)
+
+            # -----------------------------
+            # DETECTION
+            # -----------------------------
+            noise_floor = np.mean(S_mag)
+
             target_freq = 15625
-            sync_band = 2000
-
             harmonics = [1, 2, 3, 4]
-            harmonic_hits = 0
+
+            score = 0
+            ratios = []
 
             for h in harmonics:
                 f = h * target_freq
+                idx = np.argmin(np.abs(freqs - f))
 
-                mask = (np.abs(demod_freqs - f) < sync_band) | \
-                       (np.abs(demod_freqs + f) < sync_band)
+                ratio = S_mag[idx] / (noise_floor + 1e-6)
+                ratios.append(ratio)
 
-                if np.mean(demod_power[mask]) - base_noise > 5:
-                    harmonic_hits += 1
+                if ratio > CYCLOSTATIC_RATIO_THRESHOLD:
+                    score += ratio
 
-            if harmonic_hits >= 3:
+            # 🔥 LOG EVERYTHING
+            log_cyclo_debug(
+                center_freq,
+                i,
+                noise=f"{noise_floor:.2f}",
+                ratios="|".join(f"{r:.2f}" for r in ratios),
+                score=score
+            )
+
+            if ratios[0] >= CYCLOSTATIC_RATIO_THRESHOLD:
                 votes += 1
 
-        print(f"[{center_freq/1e6:.1f} MHz] Votes: {votes}")
+        print(f"[CYCLO {center_freq/1e6:.1f} MHz] Votes: {votes}")
 
         if votes >= DEMOD_REQUIRED_HITS:
-            print("ANALOG VIDEO CONFIRMED")
+            print(">>> CYCLO ANALOG VIDEO CONFIRMED <<<")
 
             log_video_detection(center_freq, votes, len(samples_list))
             log_event(
-                "VIDEO_CONFIRMED",
-                "Analog video detected",
+                "VIDEO_CONFIRMED_CYCLO",
+                "Cyclostationary analog video detected",
                 freq=center_freq,
                 votes=votes
+            )
+        elif votes < DEMOD_REQUIRED_HITS:
+            log_event(
+                "VIDEO_REJECTED_CYCLO",
+                "Cyclo detection failed",
+                freq=center_freq,
+                votes=votes,
+                required=DEMOD_REQUIRED_HITS
             )
 
 def fm_demod(iq):
