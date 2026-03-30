@@ -7,6 +7,8 @@ import time
 from queue import Queue, Full, Empty
 import threading
 
+from video_classifiers.cyclo_classifier import CycloClassifier
+
 # TODO
 # fix cluster width detection logic -> allow gaps DONE
 # fix logging (log all events, basically move from console to a log file) DONE
@@ -85,6 +87,12 @@ class ScanState:
 # Globals
 sample_queue = Queue(maxsize=100)
 freq_lock = threading.Lock()
+classifier = CycloClassifier(
+    sample_rate=SAMPLE_RATE,
+    fft_size=FFT_SIZE,
+    required_votes=DEMOD_REQUIRED_HITS,
+    # logger=log
+)
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
@@ -413,70 +421,10 @@ def analyze_plateaus_cyclo(state):
         votes = 0
         center_freq = key * FREQ_TOLERANCE
 
-        for i, samples in enumerate(samples_list):
-            samples = samples[:FFT_SIZE]
+        result = classifier.classify(samples_list, center_freq)
+        print(f"[CYCLO {center_freq/1e6:.1f} MHz] Votes: {result['score']}")
 
-            # -----------------------------
-            # DECIMATE
-            # -----------------------------
-            iq = samples
-            fs_decim = SAMPLE_RATE / 10
-
-            # -----------------------------
-            # FM DISCRIMINATOR
-            # -----------------------------
-            inst_freq = np.angle(iq[1:] * np.conj(iq[:-1]))
-            inst_freq -= np.mean(inst_freq)
-
-            N = len(inst_freq)
-
-            if N < 128:   # just a safety floor
-                log_cyclo_debug(center_freq, i, "too_short", length=N)
-                continue
-
-            x = inst_freq * np.hanning(N)
-
-            S = np.fft.fft(x)
-            freqs = np.fft.fftfreq(N, 1/fs_decim)
-            S_mag = np.abs(S)
-            S_mag = np.abs(S)
-
-            # -----------------------------
-            # DETECTION
-            # -----------------------------
-            noise_floor = np.mean(S_mag)
-
-            target_freq = 15625
-            harmonics = [1, 2, 3, 4]
-
-            score = 0
-            ratios = []
-
-            for h in harmonics:
-                f = h * target_freq
-                idx = np.argmin(np.abs(freqs - f))
-
-                ratio = S_mag[idx] / (noise_floor + 1e-6)
-                ratios.append(ratio)
-
-                if ratio > CYCLOSTATIC_RATIO_THRESHOLD:
-                    score += ratio
-
-            # 🔥 LOG EVERYTHING
-            log_cyclo_debug(
-                center_freq,
-                i,
-                noise=f"{noise_floor:.2f}",
-                ratios="|".join(f"{r:.2f}" for r in ratios),
-                score=score
-            )
-
-            if ratios[0] >= CYCLOSTATIC_RATIO_THRESHOLD:
-                votes += 1
-
-        print(f"[CYCLO {center_freq/1e6:.1f} MHz] Votes: {votes}")
-
-        if votes >= DEMOD_REQUIRED_HITS:
+        if result['confirmed']:
             print(">>> CYCLO ANALOG VIDEO CONFIRMED <<<")
 
             log_video_detection(center_freq, votes, len(samples_list))
@@ -486,7 +434,7 @@ def analyze_plateaus_cyclo(state):
                 freq=center_freq,
                 votes=votes
             )
-        elif votes < DEMOD_REQUIRED_HITS:
+        else:
             log_event(
                 "VIDEO_REJECTED_CYCLO",
                 "Cyclo detection failed",
