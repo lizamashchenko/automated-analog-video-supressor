@@ -1,14 +1,22 @@
-class VideoClassifier:
-    def __init__(self, name):
+from abc import ABC, abstractmethod
+import numpy as np
+
+class VideoClassifier(ABC):
+    def __init__(self, name: str):
         self.name = name
 
-    def classify(self, samples_list, sample_rate, center_freq):
+    @abstractmethod
+    def classify(self, samples_list, sample_rate, center_freq) -> dict:
         """
         Returns:
         {
             "confirmed": bool,
-            "score": float/int,
+            "score": float,
             "details": dict
         }
         """
-        raise NotImplementedError
+        pass
+
+    def compute_inst_freq(samples):
+        x = np.angle(samples[1:] * np.conj(samples[:-1]))
+        return x - np.mean(x)

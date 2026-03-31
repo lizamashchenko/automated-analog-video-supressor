@@ -10,6 +10,7 @@ from plateau_detector.plateau_detector import PlateauDetector
 
 from video_classifiers.harmonic_classifier import HarmonicClassifier
 from video_classifiers.cyclo_classifier import CycloClassifier
+from video_classifiers.autocorrelation_classifier import AutocorrClassifier
 
 from utils.spectrum_manipulation import compute_power_spectrum, get_freq_key
 
@@ -152,6 +153,13 @@ def fpv_detector():
                 freq=center_freq,
                 score=result["score"]
             )
+        else:
+            log.log_event(
+                "VIDEO_REJECTED",
+                f"{classifier.name} rejected video",
+                freq=center_freq,
+                score=result["score"]
+            )
     print("------------------------------")
 
 
@@ -167,13 +175,19 @@ pl_detector = PlateauDetector(sample_rate=SAMPLE_RATE,
     wide_sampling_num=WIDE_SAMPLING_NUM,
     logger=log)
 
-# classifier = HarmonicClassifier(logger=log)
+classifier = HarmonicClassifier(logger=log)
 
-classifier = CycloClassifier(sample_rate=SAMPLE_RATE,
-    fft_size=FFT_SIZE,
-    required_votes=DEMOD_REQUIRED_HITS,
-    logger=log)
+# classifier = CycloClassifier(sample_rate=SAMPLE_RATE,
+#     fft_size=FFT_SIZE,
+#     required_votes=DEMOD_REQUIRED_HITS,
+#     logger=log)
 
+# classifier = AutocorrClassifier(
+#     sample_rate=SAMPLE_RATE,
+#     decimation=10,
+#     line_freq=15625,
+#     threshold=0.1
+# )
 reader.start()
 
 while True:
