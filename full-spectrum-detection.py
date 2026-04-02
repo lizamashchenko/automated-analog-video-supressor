@@ -30,6 +30,7 @@ from utils.spectrum_manipulation import compute_power_spectrum, get_freq_key
 # limit maximums, for jammer detection
 # no tagged freq, can read old samples 
 # add debug mode to save time
+# global config, normal exit
 
 # -----------------------------
 # PARAMETERS
@@ -38,8 +39,8 @@ from utils.spectrum_manipulation import compute_power_spectrum, get_freq_key
 # Hack RF One setup
 LNA_GAIN = 32
 VGA_GAIN = 32
-MIN_FREQ = 5830e6   # Hz
-MAX_FREQ = 5850e6   # Hz
+MIN_FREQ = 1000e6   # Hz
+MAX_FREQ = 6000e6   # Hz
 SAMPLE_RATE = 20e6  # Hz
 
 # FFT params
@@ -172,7 +173,8 @@ def fpv_detector():
 log = SDRLogger(sample_rate=SAMPLE_RATE)
 # device = HackRFDevice(sample_rate=SAMPLE_RATE)
 device = FileDevice(
-    filepath="/home/liza/UCU/diploma/dataset/iq_recordings/002-rec.iq",
+    iq_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260402_200558/iq.bin",
+    meta_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260402_200558/metadata.csv",
     sample_rate=SAMPLE_RATE
 )
 reader = SDRReader(device, buffer_size=BUFFER_SIZE, logger=log)
