@@ -77,5 +77,8 @@ class CycloClassifier (VideoClassifier):
         return {
             "confirmed": confirmed,
             "score": votes,
-            "details": {"votes": votes}
+            "details": {
+                "ratios": ratios,
+                "noise_floor": noise_floor
+            }
         }

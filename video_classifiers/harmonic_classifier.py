@@ -47,12 +47,14 @@ class HarmonicClassifier(VideoClassifier):
                 res=votes>=self.required_hits,
                 freq=center_freq,
                 votes=votes,
-                hits=hits,
                 required=self.required_hits
             )
 
         return {
             "confirmed": votes >= self.required_hits,
             "score": votes,
-            "details": {"votes": votes}
+            "details": {
+                "required_hits": self.required_hits,
+                "base_noise": base_noise
+            }
         }

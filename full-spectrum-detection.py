@@ -4,7 +4,8 @@ import numpy as np
 import time
 
 from utils.logger import SDRLogger
-from sdr_wrappers.hackrf_device import HackRFDevice
+from rf_devices.hackrf_device import HackRFDevice
+from rf_devices.file_devicie import FileDevice
 from sdr_reader.reader_runner import SDRReader
 from plateau_detector.plateau_detector import PlateauDetector
 
@@ -28,6 +29,7 @@ from utils.spectrum_manipulation import compute_power_spectrum, get_freq_key
 # adaptive thresholds 
 # limit maximums, for jammer detection
 # no tagged freq, can read old samples 
+# add debug mode to save time
 
 # -----------------------------
 # PARAMETERS
@@ -36,8 +38,8 @@ from utils.spectrum_manipulation import compute_power_spectrum, get_freq_key
 # Hack RF One setup
 LNA_GAIN = 32
 VGA_GAIN = 32
-MIN_FREQ = 1000e6   # Hz
-MAX_FREQ = 6000e6   # Hz
+MIN_FREQ = 5830e6   # Hz
+MAX_FREQ = 5850e6   # Hz
 SAMPLE_RATE = 20e6  # Hz
 
 # FFT params
@@ -168,7 +170,11 @@ def fpv_detector():
 # -----------------------------
 
 log = SDRLogger(sample_rate=SAMPLE_RATE)
-device = HackRFDevice(sample_rate=SAMPLE_RATE)
+# device = HackRFDevice(sample_rate=SAMPLE_RATE)
+device = FileDevice(
+    filepath="/home/liza/UCU/diploma/dataset/iq_recordings/002-rec.iq",
+    sample_rate=SAMPLE_RATE
+)
 reader = SDRReader(device, buffer_size=BUFFER_SIZE, logger=log)
 pl_detector = PlateauDetector(sample_rate=SAMPLE_RATE,
     fft_size=FFT_SIZE,
@@ -188,6 +194,7 @@ classifier = HarmonicClassifier(logger=log)
 #     line_freq=15625,
 #     threshold=0.1
 # )
+
 reader.start()
 
 while True:

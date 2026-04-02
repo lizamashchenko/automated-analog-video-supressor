@@ -61,6 +61,7 @@ class AutocorrClassifier(VideoClassifier):
             "score": votes,
             "details": {
                 "avg_peak": avg_peak,
-                "votes": votes
+                "peaks": peaks,
+                "target_lag": target_lag
             }
         }
