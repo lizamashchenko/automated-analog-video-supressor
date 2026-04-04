@@ -8,11 +8,11 @@ class PlateauDetector:
         fft_size,
         wide_sampling_num,
         freq_tolerance=2e6,
-        above_noise_threshold=3,
-        edge_drop_level=2,
-        min_lobe_size=0.5,
-        lobe_merge_gap=2.0,
-        min_video_width=2.5,
+        above_noise_threshold=0.3,
+        edge_drop_level=0.1,
+        min_lobe_size=0.1,
+        lobe_merge_gap=10.0,
+        min_video_width=2.0,
         max_video_width=10,
         plateau_required_ratio=0.3,
         logger=None
@@ -90,15 +90,15 @@ class PlateauDetector:
         lobes = self._expand_to_lobes(smoothed, peak_indices, noise_floor)
         clusters = self._merge_lobes(lobes)
 
-        # if self.logger:
-        #     self.logger.log_event(
-        #         "CLUSTER_DEBUG",
-        #         "Cluster detection stats",
-        #         noise=float(noise_floor),
-        #         peaks=len(peak_indices),
-        #         lobes=len(lobes),
-        #         clusters=len(clusters)
-        #     )
+        if self.logger:
+            self.logger.log_event(
+                "CLUSTER_DEBUG",
+                "Cluster detection stats",
+                noise=float(noise_floor),
+                peaks=len(peak_indices),
+                lobes=len(lobes),
+                clusters=len(clusters)
+            )
 
         return clusters
 
