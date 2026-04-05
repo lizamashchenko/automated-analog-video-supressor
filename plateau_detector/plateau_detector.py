@@ -90,15 +90,15 @@ class PlateauDetector:
         lobes = self._expand_to_lobes(smoothed, peak_indices, noise_floor)
         clusters = self._merge_lobes(lobes)
 
-        if self.logger:
-            self.logger.log_event(
-                "CLUSTER_DEBUG",
-                "Cluster detection stats",
-                noise=float(noise_floor),
-                peaks=len(peak_indices),
-                lobes=len(lobes),
-                clusters=len(clusters)
-            )
+        # if self.logger:
+        #     self.logger.log_event(
+        #         "CLUSTER_DEBUG",
+        #         "Cluster detection stats",
+        #         noise=float(noise_floor),
+        #         peaks=len(peak_indices),
+        #         lobes=len(lobes),
+        #         clusters=len(clusters)
+        #     )
 
         return clusters
 

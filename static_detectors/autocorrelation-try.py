@@ -7,13 +7,13 @@ import time
 # PARAMETERS
 # -----------------------------
 CENTER_FREQ = 5840e6
-SAMPLE_RATE = 10e6
+SAMPLE_RATE = 20e6
 GAIN = 35
 
 DECIMATION = 10
 FS_DECIM = SAMPLE_RATE / DECIMATION
 
-FFT_SIZE = 8192
+FFT_SIZE = 4096
 LINE_FREQ = 15625  # PAL
 THRESHOLD = 0.1    # autocorr peak threshold
 

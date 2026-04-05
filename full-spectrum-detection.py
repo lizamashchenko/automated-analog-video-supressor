@@ -39,7 +39,7 @@ from utils.spectrum_manipulation import compute_power_spectrum, get_freq_key
 # Hack RF One setup
 LNA_GAIN = 32
 VGA_GAIN = 32
-MIN_FREQ = 5830e6   # Hz
+MIN_FREQ = 5840e6   # Hz
 MAX_FREQ = 5850e6   # Hz
 SAMPLE_RATE = 20e6  # Hz
 
@@ -171,35 +171,34 @@ def fpv_detector():
 # -----------------------------
 
 log = SDRLogger(sample_rate=SAMPLE_RATE)
-# device = HackRFDevice(sample_rate=SAMPLE_RATE)
+device = HackRFDevice(sample_rate=SAMPLE_RATE)
 # device = FileDevice(
 #     iq_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260402_200558/iq.bin",
 #     meta_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260402_200558/metadata.csv",
 #     sample_rate=SAMPLE_RATE
 # )
-device = FileDevice(
-    filepath="/home/liza/UCU/diploma/dataset/iq_recordings/002-rec.iq",
-    sample_rate=SAMPLE_RATE
-)
+# device = FileDevice(
+#     filepath="/home/liza/UCU/diploma/dataset/iq_recordings/002-rec.iq",
+#     sample_rate=SAMPLE_RATE
+# )
 reader = SDRReader(device, buffer_size=BUFFER_SIZE, logger=log)
 pl_detector = PlateauDetector(sample_rate=SAMPLE_RATE,
     fft_size=FFT_SIZE,
     wide_sampling_num=WIDE_SAMPLING_NUM,
     logger=log)
 
-classifier = HarmonicClassifier(logger=log)
+# classifier = HarmonicClassifier(logger=log)
 
 # classifier = CycloClassifier(sample_rate=SAMPLE_RATE,
 #     fft_size=FFT_SIZE,
 #     required_votes=DEMOD_REQUIRED_HITS,
 #     logger=log)
 
-# classifier = AutocorrClassifier(
-#     sample_rate=SAMPLE_RATE,
-#     decimation=10,
-#     line_freq=15625,
-#     threshold=0.1
-# )
+classifier = AutocorrClassifier(
+    sample_rate=SAMPLE_RATE,
+    required_votes=DEMOD_REQUIRED_HITS,
+    logger=log
+)
 
 reader.start()
 
