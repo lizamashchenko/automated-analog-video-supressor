@@ -25,14 +25,15 @@ from utils.spectrum_manipulation import compute_power_spectrum, get_freq_key
 # fix demodulation peak detection logic DONE
 # add average from previous scans DONE
 # clean code DONE
+# limit maximums, for jammer detection DONE
+# add debug mode to save time DONE
+# global config, normal exit DONE
+
 
 # make an application
 # introduce overlap
 # adaptive thresholds
-# limit maximums, for jammer detection
 # no tagged freq, can read old samples
-# add debug mode to save time
-# global config, normal exit
 
 # -----------------------------
 # CONFIGURATION
@@ -51,6 +52,12 @@ parser.add_argument("--run-name", metavar="NAME",
                     help="Name for this run's log folder (default: timestamp)")
 parser.add_argument("--verbosity", type=int, choices=[1, 2, 3, 4], metavar="1-4",
                     help="Log detail level (overrides config)")
+parser.add_argument("--min-freq", type=float, metavar="HZ",
+                    help="Start frequency in Hz (overrides config)")
+parser.add_argument("--max-freq", type=float, metavar="HZ",
+                    help="End frequency in Hz (overrides config)")
+parser.add_argument("--sweeps", type=int, default=0, metavar="N",
+                    help="Number of full sweeps to run, 0 = run forever (default: 0)")
 args = parser.parse_args()
 
 cfg = load_config()
@@ -66,6 +73,10 @@ if args.classifier:
     cfg["detection"]["active_classifier"] = args.classifier
 if args.verbosity:
     cfg["logging"]["verbosity"] = args.verbosity
+if args.min_freq:
+    cfg["sdr"]["min_freq"] = args.min_freq
+if args.max_freq:
+    cfg["sdr"]["max_freq"] = args.max_freq
 
 SAMPLE_RATE  = cfg["sdr"]["sample_rate"]
 LNA_GAIN     = cfg["sdr"]["lna_gain"]
@@ -284,5 +295,13 @@ else:
 
 reader.start()
 
-while True:
-    fpv_detector()
+try:
+    sweep = 0
+    while args.sweeps == 0 or sweep < args.sweeps:
+        fpv_detector()
+        sweep += 1
+except KeyboardInterrupt:
+    pass
+finally:
+    reader.stop()
+    device.close()

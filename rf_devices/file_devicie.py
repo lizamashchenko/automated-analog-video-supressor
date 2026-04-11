@@ -39,6 +39,9 @@ class FileDevice:
     def tune(self, freq):
         pass
 
+    def close(self):
+        pass
+
     def read(self, buff):
         n = len(buff)
 
