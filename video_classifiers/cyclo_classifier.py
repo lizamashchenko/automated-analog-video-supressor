@@ -6,12 +6,12 @@ class CycloClassifier (VideoClassifier):
         self,
         sample_rate,
         fft_size,
-        ratio_threshold=2.5,
-        score_threshold=6,
-        required_votes=4,
-        target_freq=15625,
-        harmonics=None,
-        logger=None
+        ratio_threshold = 2.5,
+        score_threshold = 6,
+        required_votes = 4,
+        target_freq = 15625,
+        harmonics = None,
+        logger = None
     ):
         self.sample_rate = sample_rate
         self.fft_size = fft_size
@@ -70,10 +70,10 @@ class CycloClassifier (VideoClassifier):
                 "cyclo",
                 "CYCLO_RESULT",
                 "Cyclo classification result",
-                res=confirmed,
-                freq=center_freq,
-                votes=votes,
-                required=self.required_votes
+                res = confirmed,
+                freq = center_freq,
+                votes = votes,
+                required = self.required_votes
             )
 
         return {

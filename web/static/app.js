@@ -1,25 +1,17 @@
-/* ------------------------------------------------------------------ */
-/* State                                                                */
-/* ------------------------------------------------------------------ */
 const state = {
     running: false,
     sweepNum: 0,
-    minFreq: 100,    // MHz (from config, overridden on sweep_start)
+    minFreq: 100,
     maxFreq: 6000,
     currentFreq: null,
-    // per-sweep spectrum: freq_step_mhz -> avg_power (max of 256 bins)
     sweepPower: {},
 };
 
-/* ------------------------------------------------------------------ */
-/* Spectrum canvas                                                      */
-/* ------------------------------------------------------------------ */
 const sweepCanvas  = document.getElementById('canvas-sweep');
 const sweepCtx     = sweepCanvas.getContext('2d');
 const windowCanvas = document.getElementById('canvas-window');
 const windowCtx    = windowCanvas.getContext('2d');
 
-// colour ramp: black → deep blue → cyan → green → yellow → red
 const RAMP = (() => {
     const c = document.createElement('canvas');
     c.width = 256; c.height = 1;
@@ -49,7 +41,6 @@ function resizeCanvases() {
     }
 }
 
-// Track global min/max across current sweep for normalisation
 let _sweepMin = Infinity, _sweepMax = -Infinity;
 
 function resetSweepCanvas() {
@@ -57,7 +48,6 @@ function resetSweepCanvas() {
     state.sweepPower = {};
     resizeCanvases();
     sweepCtx.clearRect(0, 0, sweepCanvas.width, sweepCanvas.height);
-    // draw dim grid
     sweepCtx.fillStyle = '#0a0a12';
     sweepCtx.fillRect(0, 0, sweepCanvas.width, sweepCanvas.height);
 }
@@ -67,9 +57,8 @@ function paintSweepColumn(freqMHz, powerArr) {
     const H = sweepCanvas.height;
     const span = state.maxFreq - state.minFreq;
     const x = Math.round(((freqMHz - state.minFreq) / span) * W);
-    const colW = Math.max(1, Math.round((20 / span) * W)); // 20 MHz step
+    const colW = Math.max(1, Math.round((20 / span) * W));
 
-    // update global scale
     const avg = powerArr.reduce((s, v) => s + v, 0) / powerArr.length;
     const peak = Math.max(...powerArr);
     _sweepMin = Math.min(_sweepMin, avg - 5);
@@ -77,9 +66,7 @@ function paintSweepColumn(freqMHz, powerArr) {
 
     state.sweepPower[Math.round(freqMHz)] = peak;
 
-    // redraw this column using current scale
-    const t = (_sweepMax - _sweepMin) < 1 ? 0.5
-        : (peak - _sweepMin) / (_sweepMax - _sweepMin);
+    const t = (_sweepMax - _sweepMin) < 1 ? 0.5 : (peak - _sweepMin) / (_sweepMax - _sweepMin);
     sweepCtx.fillStyle = powerToRGB(Math.min(1, Math.max(0, t)));
     sweepCtx.fillRect(x, 0, colW, H);
 }
@@ -117,7 +104,6 @@ function paintWindowSpectrum(freqMHz, powerArr) {
     const max = Math.max(...powerArr);
     const range = max - min || 1;
 
-    // spectrum line
     windowCtx.beginPath();
     windowCtx.strokeStyle = '#58a6ff';
     windowCtx.lineWidth = 1;
@@ -128,20 +114,16 @@ function paintWindowSpectrum(freqMHz, powerArr) {
     }
     windowCtx.stroke();
 
-    // fill under line
     windowCtx.lineTo(W, H); windowCtx.lineTo(0, H); windowCtx.closePath();
     windowCtx.fillStyle = 'rgba(88,166,255,0.08)';
     windowCtx.fill();
 
-    // harmonic markers (15625 Hz, 31250 Hz, 46875 Hz, 62500 Hz within 20 MHz window)
     const sampleRate = 20e6;
     const harmonics = [15625, 31250, 46875, 62500];
     const colors = ['#f85149', '#f0883e', '#3fb950', '#58a6ff'];
     harmonics.forEach((f, i) => {
-        // position relative to centre of window (FM demod spectrum is centred at 0)
-        // but our spectrum here is IQ power — just mark as fraction of 20 MHz
         const frac = f / sampleRate;
-        const xPos = (0.5 + frac) * W;  // positive side
+        const xPos = (0.5 + frac) * W;
         windowCtx.strokeStyle = colors[i];
         windowCtx.setLineDash([3, 3]);
         windowCtx.lineWidth = 1;
@@ -152,7 +134,6 @@ function paintWindowSpectrum(freqMHz, powerArr) {
         windowCtx.setLineDash([]);
     });
 
-    // frequency label
     windowCtx.fillStyle = '#6e7681';
     windowCtx.font = '10px monospace';
     windowCtx.fillText(`${(freqMHz - 10).toFixed(0)}`, 4, H - 4);
@@ -160,9 +141,6 @@ function paintWindowSpectrum(freqMHz, powerArr) {
     windowCtx.fillText(`${(freqMHz + 10).toFixed(0)}`, W - 36, H - 4);
 }
 
-/* ------------------------------------------------------------------ */
-/* Tables                                                               */
-/* ------------------------------------------------------------------ */
 const plateauTbody   = document.getElementById('plateau-tbody');
 const detectionTbody = document.getElementById('detection-tbody');
 const MAX_TABLE_ROWS = 200;
@@ -181,9 +159,6 @@ function addRow(tbody, cells, cssClass) {
         tbody.deleteRow(tbody.rows.length - 1);
 }
 
-/* ------------------------------------------------------------------ */
-/* Event log                                                            */
-/* ------------------------------------------------------------------ */
 const eventLog = document.getElementById('event-log');
 const MAX_LOG  = 300;
 
@@ -197,9 +172,6 @@ function logLine(text, cls) {
         eventLog.removeChild(eventLog.lastChild);
 }
 
-/* ------------------------------------------------------------------ */
-/* SSE handlers                                                         */
-/* ------------------------------------------------------------------ */
 function handleStatus(d) {
     state.running = d.state === 'running';
     const dot   = document.getElementById('status-dot');
@@ -285,9 +257,6 @@ function handleSweepComplete(d) {
     document.getElementById('progress-bar').style.width = '100%';
 }
 
-/* ------------------------------------------------------------------ */
-/* SSE connection                                                       */
-/* ------------------------------------------------------------------ */
 const evtSource = new EventSource('/stream');
 
 evtSource.onmessage = (e) => {
@@ -299,7 +268,7 @@ evtSource.onmessage = (e) => {
         case 'freq_update':       handleFreqUpdate(msg.data);       break;
         case 'spectrum':          handleSpectrum(msg.data);         break;
         case 'plateau_confirmed': handlePlateauConfirmed(msg.data); break;
-        case 'plateau_rejected':  /* silently ignored in UI */       break;
+        case 'plateau_rejected':                                    break;
         case 'video_confirmed':   handleVideoConfirmed(msg.data);   break;
         case 'video_rejected':    handleVideoRejected(msg.data);    break;
         case 'error':             handleError(msg.data);            break;
@@ -312,9 +281,6 @@ evtSource.onerror = () => {
     document.getElementById('status-dot').className = 'error';
 };
 
-/* ------------------------------------------------------------------ */
-/* Controls                                                             */
-/* ------------------------------------------------------------------ */
 document.getElementById('device-select').addEventListener('change', function () {
     const show = this.value === 'file';
     document.getElementById('file-fields').style.display = show ? 'flex' : 'none';
@@ -347,12 +313,8 @@ document.getElementById('btn-stop').addEventListener('click', async () => {
     await fetch('/stop', { method: 'POST' });
 });
 
-/* ------------------------------------------------------------------ */
-/* Init                                                                 */
-/* ------------------------------------------------------------------ */
 window.addEventListener('resize', () => resizeCanvases());
 
-// check current running state on load
 fetch('/status').then(r => r.json()).then(d => {
     document.getElementById('btn-start').disabled = d.running;
     document.getElementById('btn-stop').disabled  = !d.running;
@@ -362,7 +324,6 @@ fetch('/status').then(r => r.json()).then(d => {
     }
 });
 
-// initial canvas size
 requestAnimationFrame(() => {
     resizeCanvases();
     resetSweepCanvas();

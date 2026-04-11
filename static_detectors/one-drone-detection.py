@@ -15,11 +15,6 @@ log_counter = 0
 history = []
 HISTORY_LEN = 8
 HISTORY_THRESHOLD = 5
-
-# -----------------------------
-# PARAMETERS
-# -----------------------------
-# CENTER_FREQ = 2320e6
 CENTER_FREQ = 5840e6
 
 SAMPLE_RATE = 20e6
@@ -29,11 +24,13 @@ ALPHA = 0.2
 
 MIN_CLUSTER_MHZ = 2.5
 
-EDGE_DROP_DB = 2        # how far from peak to expand
-PEAK_THRESHOLD_DB = 3   # above noise to consider peak
-MIN_LOBE_MHZ = 0.5      # minimum lobe size
-MERGE_GAP_MHZ = 2.0     # max gap to merge lobes
+EDGE_DROP_DB = 2
+PEAK_THRESHOLD_DB = 3
+MIN_LOBE_MHZ = 0.5
+MERGE_GAP_MHZ = 2.0
 
+BIN_TO_MHZ = SAMPLE_RATE / FFT_SIZE / 1e6
+MERGE_GAP_BINS = int(MERGE_GAP_MHZ / BIN_TO_MHZ)
 
 LOG_DIR = "demod_logs"
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -45,9 +42,6 @@ demod_file = os.path.join(LOG_DIR, f"demod_{timestamp}.bin")
 fft_file = os.path.join(LOG_DIR, f"fft_{timestamp}.bin")
 meta_file = os.path.join(LOG_DIR, f"meta_{timestamp}.txt")
 
-# -----------------------------
-# SDR SETUP
-# -----------------------------
 print("[INFO] Opening HackRF...")
 sdr = SoapySDR.Device(dict(driver="hackrf"))
 
@@ -67,25 +61,13 @@ avg_power = None
 latest_fft = None
 lock = threading.Lock()
 
-# Frequency axis (MHz)
 freqs = np.linspace(
     CENTER_FREQ - SAMPLE_RATE/2,
     CENTER_FREQ + SAMPLE_RATE/2,
     FFT_SIZE
 ) / 1e6
 
-# Precompute bin conversion
-BIN_TO_MHZ = SAMPLE_RATE / FFT_SIZE / 1e6
-MERGE_GAP_BINS = int(MERGE_GAP_MHZ / BIN_TO_MHZ)
-
-# -----------------------------
-# SDR THREAD
-# -----------------------------
-
 def fm_demod(iq):
-    """
-    Simple complex FM discriminator
-    """
     return np.angle(iq[1:] * np.conj(iq[:-1]))
 
 def band_energy(power, freqs, center, width):
@@ -121,16 +103,13 @@ def sdr_worker():
 
         samples = buff[:FFT_SIZE]
 
-        # FFT
         window = np.hanning(len(samples))
         spectrum = np.fft.fftshift(np.fft.fft(samples * window))
         power = 20 * np.log10(np.abs(spectrum) + 1e-12)
 
-        # Remove DC spike
         center = len(power) // 2
         power[center-5:center+5] = np.median(power)
 
-        # Averaging
         if avg_power is None:
             avg_power = power
         else:
@@ -138,12 +117,8 @@ def sdr_worker():
 
         smoothed = np.convolve(avg_power, np.ones(3)/3, mode='same')
 
-        # -----------------------------
-        # DETECTION PIPELINE
-        # -----------------------------
         noise_floor = np.median(smoothed)
 
-        # ---- 1. Find peaks ----
         peak_indices = np.where(
             (smoothed[1:-1] > smoothed[:-2]) &
             (smoothed[1:-1] > smoothed[2:]) &
@@ -153,7 +128,6 @@ def sdr_worker():
         clusters = []
         edge_threshold = noise_floor + EDGE_DROP_DB
 
-        # ---- 2. Expand peaks ----
         for peak_idx in peak_indices:
             left = peak_idx
             while left > 0 and smoothed[left] > edge_threshold:
@@ -165,7 +139,6 @@ def sdr_worker():
 
             clusters.append((left, right))
 
-        # ---- 3. Filter small lobes ----
         filtered = []
         for left, right in clusters:
             bw_bins = right - left + 1
@@ -174,7 +147,6 @@ def sdr_worker():
             if bw_mhz >= MIN_LOBE_MHZ:
                 filtered.append((left, right))
 
-        # ---- 4. Merge nearby lobes ----
         merged = []
         if filtered:
             filtered.sort()
@@ -189,7 +161,6 @@ def sdr_worker():
 
             merged.append((cur_left, cur_right))
 
-        # ---- 5. Final selection ----
         valid_clusters = []
         for left, right in merged:
             bw_bins = right - left + 1
@@ -206,7 +177,6 @@ def sdr_worker():
             occupied_bw = 0
             center_freq = 0
 
-        # ---- DEBUG ----
         print("\n------------------------------")
         print(f"Noise floor: {noise_floor:.1f} dB")
         print(f"Peaks found: {len(peak_indices)}")
@@ -227,29 +197,23 @@ def sdr_worker():
             spec = np.fft.fftshift(np.fft.fft(shifted))
             freq_axis = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, len(spec))
 
-            mask = np.abs(freq_axis) <= 5e6   # ±5 MHz
+            mask = np.abs(freq_axis) <= 5e6
             spec_filtered = spec * mask
 
             filtered = np.fft.ifft(np.fft.ifftshift(spec_filtered))
 
             demod = fm_demod(filtered)
 
-            # FFT of demodulated signal
             demod_fft = np.fft.fftshift(np.fft.fft(demod * np.hanning(len(demod))))
             demod_power = 20 * np.log10(np.abs(demod_fft) + 1e-12)
 
             demod_freqs = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, len(demod))
 
-            # -----------------------------
-            # SYNC DETECTION (IMPROVED)
-            # -----------------------------
-
-            sync_band = 2000  # ±2 kHz
-            target_freq = 15625  # PAL (you can later try NTSC 15734)
+            sync_band = 2000
+            target_freq = 15625
 
             base_noise = np.median(demod_power)
 
-            # ---- 1. Harmonics check ----
             harmonics = [1, 2, 3, 4]
             harmonic_hits = 0
 
@@ -266,21 +230,16 @@ def sdr_worker():
                     if (pos_energy - base_noise > 5) and (neg_energy - base_noise > 5):
                         harmonic_hits += 1
 
-            # ---- 3. Peak dominance check ----
-
-            # main sync region (±15 kHz)
             main_mask = (np.abs(demod_freqs) > target_freq - sync_band) & \
                         (np.abs(demod_freqs) < target_freq + sync_band)
 
             main_energy = np.mean(demod_power[main_mask])
 
-            # everything else (excluding DC and sync)
             exclude_mask = (np.abs(demod_freqs) < 2000) | main_mask
             rest_energy = np.mean(demod_power[~exclude_mask])
 
             dominance = main_energy - rest_energy
 
-            # ---- Final decision ----
             sync_detected = (harmonic_hits >= 3) and (dominance > 10)
             history.append(1 if sync_detected else 0)
 
@@ -293,11 +252,9 @@ def sdr_worker():
             print(f"Harmonics detected: {harmonic_hits}/4")
             print(f"Peak dominance: {dominance:.2f} dB")
 
-            # ---- SAVE DEMOD ----
             with open(demod_file, "ab") as f:
                 demod.astype(np.float32).tofile(f)
 
-            # ---- SAVE METADATA ----
             with open(meta_file, "a") as f:
                 f.write(
                     f"BW={occupied_bw:.3f}MHz "
@@ -324,19 +281,12 @@ def sdr_worker():
 
         print("------------------------------")
 
-        # Share FFT
         with lock:
             latest_fft = avg_power.copy()
 
-        # time.sleep(0.001)
-
-# Start SDR thread
 thread = threading.Thread(target=sdr_worker, daemon=True)
 thread.start()
 
-# -----------------------------
-# GUI
-# -----------------------------
 app = QtWidgets.QApplication(sys.argv)
 
 win = pg.GraphicsLayoutWidget(title="Analog Video Detector")

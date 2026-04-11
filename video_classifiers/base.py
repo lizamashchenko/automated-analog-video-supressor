@@ -7,14 +7,6 @@ class VideoClassifier(ABC):
 
     @abstractmethod
     def classify(self, samples_list, sample_rate, center_freq) -> dict:
-        """
-        Returns:
-        {
-            "confirmed": bool,
-            "score": float,
-            "details": dict
-        }
-        """
         pass
 
     def compute_inst_freq(samples):

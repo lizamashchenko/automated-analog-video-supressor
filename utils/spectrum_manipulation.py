@@ -3,7 +3,6 @@ import numpy as np
 FFT_SMOOTHING_FACTOR = 0.2
 SAMPLE_RATE = 20e6  # Hz
 
-# Build spectrum
 def compute_power_spectrum(samples, state):
     window = np.hanning(len(samples))
     spectrum = np.fft.fftshift(np.fft.fft(samples * window))

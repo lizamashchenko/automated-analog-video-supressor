@@ -1,12 +1,3 @@
-#!/bin/bash
-# Run all three classifiers on a live HackRF sweep and collect logs for later analysis.
-#
-# Usage:
-#   ./scenarios/compare_classifiers.sh <min_freq_mhz> <max_freq_mhz> <sweeps>
-#
-# Example:
-#   ./scenarios/compare_classifiers.sh 2300 2600 5
-
 set -e
 
 MIN_MHZ=${1:?Usage: $0 <min_freq_mhz> <max_freq_mhz> <sweeps>}

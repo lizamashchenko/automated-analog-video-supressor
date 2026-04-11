@@ -5,22 +5,22 @@ class AutocorrClassifier:
     def __init__(
         self,
         sample_rate,
-        decimation=1,
-        line_freq=15625,       
-        lag_tolerance=0.1,     
-        peak_threshold=0.18,
-        required_votes=2,
-        logger=None
+        decimation = 1,
+        line_freq = 15625,       
+        lag_tolerance = 0.1,     
+        peak_threshold = 0.18,
+        required_votes = 2,
+        logger = None
     ):
-        self.sample_rate = sample_rate
-        self.decimation = decimation
-        self.fs_decim = sample_rate / decimation
-        self.line_freq = line_freq
-        self.lag_tolerance = lag_tolerance
+        self.sample_rate    = sample_rate
+        self.decimation     = decimation
+        self.fs_decim       = sample_rate / decimation
+        self.line_freq      = line_freq
+        self.lag_tolerance  = lag_tolerance
         self.peak_threshold = peak_threshold
         self.required_votes = required_votes
-        self.logger = logger
-        self.name = "AutocorrClassifier"
+        self.logger         = logger
+        self.name           = "AutocorrClassifier"
 
     def classify(self, samples_list, sample_rate, center_freq):
         votes = 0
@@ -39,9 +39,9 @@ class AutocorrClassifier:
                     "autocorr",
                     "AUTOCORR_SAMPLE",
                     "Per-buffer autocorr result",
-                    freq=center_freq,
-                    peak=float(peak) if peak is not None else -1.0,
-                    confirmed=confirmed,
+                    freq = center_freq,
+                    peak = float(peak) if peak is not None else -1.0,
+                    confirmed = confirmed,
                 )
 
         total = len(samples_list)
@@ -53,11 +53,11 @@ class AutocorrClassifier:
                 "autocorr",
                 "AUTOCORR_RESULT",
                 f"{self.name} classification",
-                freq=center_freq,
-                votes=votes,
-                total=total,
-                score=score,
-                confirmed=confirmed,
+                freq = center_freq,
+                votes = votes,
+                total = total,
+                score = score,
+                confirmed = confirmed,
             )
 
         return {
@@ -76,14 +76,14 @@ class AutocorrClassifier:
         from scipy.signal import decimate
         q = int(self.sample_rate // 1_000_000)
         if q > 1:
-            inst_freq = decimate(inst_freq, q, ftype='fir', zero_phase=True)
+            inst_freq = decimate(inst_freq, q, ftype = 'fir', zero_phase = True)
         fs_eff = self.sample_rate / q
 
         n = len(inst_freq)
         if n < 2:
             return None
 
-        corr = np.correlate(inst_freq, inst_freq, mode='full')
+        corr = np.correlate(inst_freq, inst_freq, mode = 'full')
         corr = corr[len(corr) // 2:]
 
         if corr[0] < 1e-12:

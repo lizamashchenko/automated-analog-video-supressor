@@ -3,19 +3,17 @@ import time
 import csv
 from collections import defaultdict
 
-
 class FakeResult:
     def __init__(self, ret):
         self.ret = ret
-
 
 class FileDevice:
     def __init__(self, filepath, metadata_path, sample_rate, loop=True):
         self.samples = np.memmap(filepath, dtype=np.complex64, mode='r')
         self.sample_rate = sample_rate
         self.loop = loop
-
         self.chunks = defaultdict(list)
+
         with open(metadata_path) as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -23,6 +21,7 @@ class FileDevice:
                 sample_off = int(row["offset_bytes"]) // 8
                 n = int(row["num_samples"])
                 self.chunks[freq].append((sample_off, n))
+
         self.ptr = 0
         self.loop = loop
 
@@ -34,6 +33,7 @@ class FileDevice:
         iq = raw.reshape(-1, 2)
         iq = iq[:, 0].astype(np.float32) + 1j * iq[:, 1].astype(np.float32)
         iq /= 128.0
+
         return iq.astype(np.complex64)
 
     def tune(self, freq):

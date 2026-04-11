@@ -1,9 +1,6 @@
-# utils/sdr_reader.py
-
 import threading
 from queue import Queue, Full
 import numpy as np
-
 
 class SDRReader:
     def __init__(self, device, buffer_size, queue_size=100, sample_size=4096, logger=None):
@@ -27,7 +24,6 @@ class SDRReader:
             self.thread.join()
 
     def flush(self):
-        """Discard all samples currently in the queue (call after device.tune())."""
         while not self.queue.empty():
             try:
                 self.queue.get_nowait()

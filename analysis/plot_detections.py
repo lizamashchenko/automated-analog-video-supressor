@@ -1,43 +1,20 @@
-"""
-Plot demodulated baseband spectrum and autocorrelation for every saved IQ sample.
-
-For each .npy file in samples/:
-  - Top panel:    FM-demodulated power spectrum with PAL/NTSC harmonic markers
-  - Bottom panel: normalised autocorrelation with the line-period lag marker
-
-Saves one PNG per .npy alongside the source file.
-
-Usage:
-    python analysis/plot_detections.py --log-dir logs/my_run
-    python analysis/plot_detections.py --run-name compare_20260411_133359
-    python analysis/plot_detections.py --run-name compare_20260411_133359 --classifier cyclo
-"""
-
 import argparse
 import os
-
 import numpy as np
 import matplotlib
-matplotlib.use("Agg")   # no display required
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from scipy.signal import decimate
 
-
-# -------------------------------------------------------
-# DSP helpers
-# -------------------------------------------------------
-
-LINE_FREQ   = 15_625        # Hz — PAL line rate
+LINE_FREQ   = 15_625
 HARMONICS   = [1, 2, 3, 4]
-DECIM_RATE  = None          # set at runtime from sample_rate
-
+DECIM_RATE  = None
 
 def fm_demod(iq):
     inst = np.angle(iq[1:] * np.conj(iq[:-1]))
     inst -= np.mean(inst)
     return inst
-
 
 def power_spectrum(signal, sample_rate):
     n = len(signal)
@@ -47,9 +24,7 @@ def power_spectrum(signal, sample_rate):
     power_db = 20 * np.log10(np.abs(fft) + 1e-12)
     return freqs, power_db
 
-
 def autocorrelation(signal, sample_rate, line_freq=LINE_FREQ, lag_tolerance=0.1):
-    """Decimate to ~1 MHz, compute normalised autocorrelation."""
     q = max(1, int(sample_rate // 1_000_000))
     if q > 1:
         signal = decimate(signal, q, ftype="fir", zero_phase=True)
@@ -64,25 +39,17 @@ def autocorrelation(signal, sample_rate, line_freq=LINE_FREQ, lag_tolerance=0.1)
     target_lag = int(round(fs_eff / line_freq))
     lags = np.arange(len(corr)) / fs_eff * 1000  # ms
 
-    return lags, corr, target_lag / fs_eff * 1000  # target lag in ms
-
-
-# -------------------------------------------------------
-# Plotting
-# -------------------------------------------------------
+    return lags, corr, target_lag / fs_eff * 1000
 
 HARMONIC_COLORS = ["#e74c3c", "#e67e22", "#2ecc71", "#3498db"]
-
 
 def plot_sample(npy_path, sample_rate, out_path):
     data = np.load(npy_path)
     center_freq_mhz = float(os.path.basename(npy_path).split("MHz")[0])
 
-    # data is (N_buffers, samples_per_buffer) — process each buffer, average results
     if data.ndim == 1:
-        data = data[np.newaxis, :]  # treat as single buffer
+        data = data[np.newaxis, :]
 
-    # --- power spectrum: average across buffers ---
     power_sum = None
     freqs = None
     corr_sum = None
@@ -118,14 +85,12 @@ def plot_sample(npy_path, sample_rate, out_path):
     else:
         corr = None
 
-    # --- figure ---
     fig, axes = plt.subplots(2, 1, figsize=(12, 8))
     fig.suptitle(
         f"Demodulated baseband — {center_freq_mhz:.1f} MHz",
         fontsize=13, fontweight="bold"
     )
 
-    # Top: power spectrum
     ax = axes[0]
     ax.plot(freqs / 1e3, power, color="#2c3e50", linewidth=0.8, label="FM demod")
 
@@ -140,16 +105,15 @@ def plot_sample(npy_path, sample_rate, out_path):
     ax.set_xlabel("Frequency (kHz)")
     ax.set_ylabel("Power (dB)")
     ax.set_title("FM-demodulated power spectrum")
-    ax.set_xlim(0, min(freqs[-1] / 1e3, 200))  # show up to 200 kHz
+    ax.set_xlim(0, min(freqs[-1] / 1e3, 200))
     ax.legend(fontsize=8, loc="upper right")
     ax.grid(True, alpha=0.3)
     ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
     ax.xaxis.set_minor_locator(ticker.AutoMinorLocator())
 
-    # Bottom: autocorrelation
     ax2 = axes[1]
     if lags is not None:
-        max_lag_ms = 5 * (1000 / LINE_FREQ)  # show 5 line periods
+        max_lag_ms = 5 * (1000 / LINE_FREQ)
         mask = lags <= max_lag_ms
         ax2.plot(lags[mask], corr[mask], color="#2c3e50", linewidth=0.8)
         ax2.axvline(target_lag_ms, color="#e74c3c", linestyle="--", linewidth=1.5,
@@ -167,11 +131,6 @@ def plot_sample(npy_path, sample_rate, out_path):
     plt.tight_layout()
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
-
-
-# -------------------------------------------------------
-# Entry point
-# -------------------------------------------------------
 
 def process_dir(log_dir, sample_rate):
     samples_dir = os.path.join(log_dir, "samples")
@@ -196,7 +155,6 @@ def process_dir(log_dir, sample_rate):
             print(f"  [error] {fname}: {e}")
 
     return count
-
 
 def main():
     parser = argparse.ArgumentParser(description="Plot demodulated baseband for saved IQ samples")
@@ -232,7 +190,6 @@ def main():
         total += process_dir(d, args.sample_rate)
 
     print(f"\nDone. {total} plot(s) saved.")
-
 
 if __name__ == "__main__":
     main()

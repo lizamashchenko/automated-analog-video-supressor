@@ -5,12 +5,7 @@ import numpy as np
 import time
 import os
 from datetime import datetime
-
 from utils.config import load as load_config
-
-# -----------------------------
-# CONFIGURATION
-# -----------------------------
 
 cfg = load_config()
 
@@ -22,8 +17,8 @@ LNA_GAIN          = cfg["sdr"]["lna_gain"]
 VGA_GAIN          = cfg["sdr"]["vga_gain"]
 WIDE_SAMPLING_NUM = cfg["scan"]["wide_sampling_num"]
 
-SETTLE_TIME   = 0.01  # seconds to wait after tuning before reading
-FLUSH_BUFFERS = 3     # buffers to discard after tuning to let AGC settle
+SETTLE_TIME   = 0.01
+FLUSH_BUFFERS = 3
 
 parser = argparse.ArgumentParser(description="Record a full-spectrum IQ sweep to disk")
 parser.add_argument("--base-dir", metavar="DIR",
@@ -31,20 +26,12 @@ parser.add_argument("--base-dir", metavar="DIR",
                     help="Directory where sweep folders are created")
 args = parser.parse_args()
 
-# -----------------------------
-# OUTPUT SETUP
-# -----------------------------
-
 timestamp_run = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 OUTPUT_DIR = os.path.join(args.base_dir, f"sweep_{timestamp_run}")
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok = True)
 
 IQ_FILE   = os.path.join(OUTPUT_DIR, "iq.bin")
 META_FILE = os.path.join(OUTPUT_DIR, "metadata.csv")
-
-# -----------------------------
-# DEVICE SETUP
-# -----------------------------
 
 sdr = SoapySDR.Device(dict(driver="hackrf"))
 sdr.setSampleRate(SOAPY_SDR_RX, 0, SAMPLE_RATE)
@@ -55,10 +42,6 @@ rx_stream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)
 sdr.activateStream(rx_stream)
 
 buff = np.empty(BUFFER_SIZE, np.complex64)
-
-# -----------------------------
-# SWEEP
-# -----------------------------
 
 meta_f = open(META_FILE, "w")
 meta_f.write("timestamp,center_freq,offset_bytes,num_samples\n")

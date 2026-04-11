@@ -1,28 +1,8 @@
-"""
-Summarise a compare_classifiers run.
-
-Usage:
-    python analysis/run_summary.py --run-name compare_20260411_133359
-    python analysis/run_summary.py --log-dir logs/my_single_run
-
---run-name  looks for logs/<name>_harmonic, _cyclo, _autocorr
---log-dir   shows a summary for a single directory instead
-"""
-
 import argparse
-import csv
 import os
-import re
 from collections import defaultdict
-from datetime import datetime
-
-
-# -------------------------------------------------------
-# Parsing
-# -------------------------------------------------------
 
 def parse_events(path):
-    """Return list of dicts from events.log."""
     events = []
     if not os.path.exists(path):
         print("No events.log exists")
@@ -62,40 +42,30 @@ def parse_csv_log(path, columns):
             rows.append(dict(zip(columns, parts)))
     return rows
 
-
-# -------------------------------------------------------
-# Summary for a single run directory
-# -------------------------------------------------------
-
 PLATEAU_COLS = ["timestamp", "center_freq", "bandwidth", "hit_count"]
 VIDEO_COLS   = ["timestamp", "center_freq", "score", "sample_count"]
 
 ERROR_TYPES = {"SDR_READ_ERROR", "ZERO_BUFFER", "QUEUE_FULL", "INVALID_BIN"}
-
 
 def summarise_dir(log_dir):
     events   = parse_events(os.path.join(log_dir, "events.log"))
     plateaus = parse_csv_log(os.path.join(log_dir, "confirmed_plateau.log"), PLATEAU_COLS)
     videos   = parse_csv_log(os.path.join(log_dir, "video_detections.log"),  VIDEO_COLS)
 
-    # Count event types
     counts = defaultdict(int)
     for ev in events:
         counts[ev["type"]] += 1
 
-    # Unique confirmed plateau frequencies (rounded to nearest MHz)
     plateau_freqs = sorted(set(
         round(float(p["center_freq"]) / 1e6, 1) for p in plateaus
     ))
 
-    # Video detections
     video_freqs = []
     for v in videos:
         freq_mhz = float(v["center_freq"]) / 1e6
         score    = float(v["score"])
         video_freqs.append((freq_mhz, score))
 
-    # Saved samples
     samples_dir = os.path.join(log_dir, "samples")
     saved_samples = 0
     if os.path.isdir(samples_dir):
@@ -115,17 +85,11 @@ def summarise_dir(log_dir):
         "saved_samples":      saved_samples,
     }
 
-
-# -------------------------------------------------------
-# Printing
-# -------------------------------------------------------
-
 def print_single(label, s):
     total_plateau = s["plateaus_confirmed"] + s["plateaus_rejected"]
     reject_rate = (
         100 * s["plateaus_rejected"] / total_plateau if total_plateau else 0
     )
-    total_video = s["video_confirmed"] + s["video_rejected"]
 
     print(f"\n{'=' * 50}")
     print(f"  {label}")
@@ -165,14 +129,12 @@ def print_comparison(summaries):
 
     row("Plateaus confirmed",  lambda s: s["plateaus_confirmed"])
     row("Plateaus rejected",   lambda s: s["plateaus_rejected"])
-    row("Plateau reject rate", lambda s: _pct(s["plateaus_rejected"],
-                                               s["plateaus_confirmed"] + s["plateaus_rejected"]))
+    row("Plateau reject rate", lambda s: _pct(s["plateaus_rejected"], s["plateaus_confirmed"] + s["plateaus_rejected"]))
     row("Video confirmed",     lambda s: s["video_confirmed"])
     row("Video rejected",      lambda s: s["video_rejected"])
     row("Saved IQ samples",    lambda s: s["saved_samples"])
     row("Errors",              lambda s: s["errors"])
 
-    # Per-classifier confirmed detections
     all_detections = {}
     for label, s in summaries.items():
         for freq, score in s["video_detections"]:
@@ -193,15 +155,12 @@ def print_comparison(summaries):
 
     print()
 
-
 def _pct(num, denom):
     if denom == 0:
         return "n/a"
     return f"{100 * num / denom:.0f}%"
 
-
 def _group_freqs(freqs, gap_mhz=50):
-    """Collapse nearby frequencies into ranges for readable output."""
     if not freqs:
         return ""
     groups = []
@@ -214,11 +173,6 @@ def _group_freqs(freqs, gap_mhz=50):
             start = end = f
     groups.append(f"{start:.0f}–{end:.0f}" if start != end else f"{start:.0f}")
     return ", ".join(groups) + " MHz"
-
-
-# -------------------------------------------------------
-# Entry point
-# -------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(description="Summarise a detection run or compare classifier runs")
@@ -236,7 +190,6 @@ def main():
         print_single(os.path.basename(args.log_dir), s)
         return
 
-    # Compare mode: find all classifier subdirs for this run name
     classifiers = ["harmonic", "cyclo", "autocorr"]
     summaries = {}
     for clf in classifiers:
@@ -253,7 +206,6 @@ def main():
         print_comparison(summaries)
     else:
         print("No run directories found.")
-
 
 if __name__ == "__main__":
     main()

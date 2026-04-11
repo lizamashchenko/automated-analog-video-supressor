@@ -17,17 +17,14 @@ class PlateauDetector:
         plateau_required_ratio=0.3,
         logger=None
     ):
-        # Core params
         self.sample_rate = sample_rate
         self.fft_size = fft_size
         self.freq_tolerance = freq_tolerance
         self.wide_sampling_num = wide_sampling_num
 
-        # Derived
         self.mhz_per_bin = sample_rate / fft_size / 1e6
         self.lobe_merge_bins = int(lobe_merge_gap / self.mhz_per_bin)
 
-        # Thresholds
         self.above_noise_threshold = above_noise_threshold
         self.edge_drop_level = edge_drop_level
         self.min_lobe_size = min_lobe_size
@@ -36,12 +33,8 @@ class PlateauDetector:
 
         self.plateau_required_hits = int(wide_sampling_num * plateau_required_ratio)
 
-        # Optional logger
         self.logger = logger
 
-    # -----------------------------
-    # Public API
-    # -----------------------------
     def detect(self, power, center_freq):
         freqs = np.linspace(
             center_freq - self.sample_rate / 2,
@@ -74,9 +67,6 @@ class PlateauDetector:
         plateau_map[key].extend(plateau["samples"])
         plateau_map[key] = plateau_map[key][-5:]
 
-    # -----------------------------
-    # Internal pipeline
-    # -----------------------------
     def _find_clusters(self, power):
         smoothed = np.convolve(power, np.ones(3)/3, mode='same')
         noise_floor = np.median(smoothed)
@@ -137,7 +127,6 @@ class PlateauDetector:
             if left - cur_right <= self.lobe_merge_bins:
                 cur_right = max(cur_right, right)
             else:
-                # save previous
                 bw_bins = cur_right - cur_left + 1
                 bw_mhz = bw_bins * self.mhz_per_bin
 
@@ -146,7 +135,6 @@ class PlateauDetector:
 
                 cur_left, cur_right = left, right
 
-        # last cluster
         bw_bins = cur_right - cur_left + 1
         bw_mhz = bw_bins * self.mhz_per_bin
 
@@ -162,7 +150,6 @@ class PlateauDetector:
         left, right, bw = max(clusters, key=lambda x: x[2])
         center_bin = (left + right) // 2
 
-        # safety check
         if center_bin < 0 or center_bin >= len(freqs):
             if self.logger:
                 self.logger.log_event(

@@ -1,8 +1,6 @@
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtWidgets, QtCore
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtWidgets, QtCore
 import threading
 import time
 import sys

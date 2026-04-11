@@ -5,13 +5,13 @@ from .base import VideoClassifier
 class HarmonicClassifier(VideoClassifier):
     def __init__(
         self,
-        required_hits=3,
-        required_votes=4,
-        threshold_db=5,
-        target_freq=15625,
-        sync_band=2000,
-        harmonics=None,
-        logger=None
+        required_hits = 3,
+        required_votes = 4,
+        threshold_db = 5,
+        target_freq = 15625,
+        sync_band = 2000,
+        harmonics = None,
+        logger = None
     ):
         super().__init__("harmonic")
         self.required_hits = required_hits
@@ -54,11 +54,11 @@ class HarmonicClassifier(VideoClassifier):
                 "harmonic",
                 "HARMONIC_RESULT",
                 "Harmonic classification result",
-                res=votes>=self.required_votes,
-                freq=center_freq,
-                hits=hits,
-                votes=votes,
-                required=self.required_votes
+                res = (votes >= self.required_votes),
+                freq = center_freq,
+                hits = hits,
+                votes = votes,
+                required = self.required_votes
             )
 
         return {
