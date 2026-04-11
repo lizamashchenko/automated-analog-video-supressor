@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analog Video Detector</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <h1>Analog Video Detector</h1>
+  <div id="status-badge">
+    <div id="status-dot" class="stopped"></div>
+    <span id="status-label">IDLE</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ============================================================== -->
+  <!-- Sidebar: configuration                                          -->
+  <!-- ============================================================== -->
+  <aside class="sidebar">
+    <div>
+      <h2>Device</h2>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="device-select">
+          <option value="hackrf" {% if cfg.device.type == 'hackrf' %}selected{% endif %}>HackRF One</option>
+          <option value="file"   {% if cfg.device.type == 'file'   %}selected{% endif %}>File replay</option>
+        </select>
+      </div>
+      <div id="file-fields" style="display: {% if cfg.device.type == 'file' %}flex{% else %}none{% endif %}; flex-direction: column; gap: 8px; margin-top: 8px;">
+        <div class="form-group">
+          <label>IQ file path</label>
+          <input id="file-path" type="text" value="{{ cfg.device.file_path }}" placeholder="/path/to/iq.bin">
+        </div>
+        <div class="form-group">
+          <label>Metadata path</label>
+          <input id="metadata-path" type="text" value="{{ cfg.device.metadata_path }}" placeholder="/path/to/metadata.csv">
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2>Classifier</h2>
+      <div class="form-group">
+        <select id="classifier-select">
+          <option value="harmonic" {% if cfg.detection.active_classifier == 'harmonic' %}selected{% endif %}>Harmonic</option>
+          <option value="cyclo"    {% if cfg.detection.active_classifier == 'cyclo'    %}selected{% endif %}>Cyclostationary</option>
+          <option value="autocorr" {% if cfg.detection.active_classifier == 'autocorr' %}selected{% endif %}>Autocorrelation</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <h2>Spectrum</h2>
+      <div class="form-group">
+        <label>Min freq (MHz)</label>
+        <input id="min-freq" type="number" value="{{ (cfg.sdr.min_freq / 1e6) | int }}" step="1">
+      </div>
+      <div class="form-group">
+        <label>Max freq (MHz)</label>
+        <input id="max-freq" type="number" value="{{ (cfg.sdr.max_freq / 1e6) | int }}" step="1">
+      </div>
+    </div>
+
+    <div>
+      <h2>Run</h2>
+      <div class="form-group">
+        <label>Sweeps (0 = forever)</label>
+        <input id="sweeps" type="number" value="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>Verbosity</label>
+        <select id="verbosity">
+          <option value="1" {% if cfg.logging.verbosity == 1 %}selected{% endif %}>1 — errors + detections</option>
+          <option value="2" {% if cfg.logging.verbosity == 2 %}selected{% endif %}>2 — + decisions</option>
+          <option value="3" {% if cfg.logging.verbosity == 3 %}selected{% endif %}>3 — + debug files</option>
+          <option value="4" {% if cfg.logging.verbosity == 4 %}selected{% endif %}>4 — + raw IQ samples</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Run name (optional)</label>
+        <input id="run-name" type="text" placeholder="auto timestamp">
+      </div>
+    </div>
+
+    <div>
+      <button id="btn-start" class="btn">START</button>
+      <button id="btn-stop"  class="btn" disabled>STOP</button>
+      <div id="run-info" class="run-info" style="margin-top:8px;"></div>
+    </div>
+  </aside>
+
+  <!-- ============================================================== -->
+  <!-- Main content                                                    -->
+  <!-- ============================================================== -->
+  <div class="main">
+
+    <!-- Spectrum -->
+    <div class="panel" id="panel-spectrum">
+      <h2>Spectrum</h2>
+      <div class="spectrum-wrap">
+        <canvas id="canvas-sweep"></canvas>
+        <div class="spectrum-labels">
+          <span id="freq-range-label">100</span>
+          <span>— full sweep overview —</span>
+          <span id="freq-range-label-max">6000 MHz</span>
+        </div>
+        <canvas id="canvas-window"></canvas>
+        <div class="progress-row">
+          <span id="sweep-label" style="font-family:monospace;font-size:11px;color:var(--text-dim);min-width:56px;">Sweep —</span>
+          <div id="progress-bar-wrap">
+            <div id="progress-bar"></div>
+          </div>
+          <span id="progress-label">— MHz</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tables + log -->
+    <div class="bottom">
+
+      <!-- Confirmed plateaus -->
+      <div class="bottom-col">
+        <h2>Confirmed Plateaus</h2>
+        <div class="scroll-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Freq</th>
+                <th>BW</th>
+                <th>Hits</th>
+                <th>Sweep</th>
+              </tr>
+            </thead>
+            <tbody id="plateau-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Video detections -->
+      <div class="bottom-col">
+        <h2>Video Detections</h2>
+        <div class="scroll-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Freq</th>
+                <th>Classifier</th>
+                <th>Score</th>
+                <th>Sweep</th>
+              </tr>
+            </thead>
+            <tbody id="detection-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Event log -->
+      <div class="bottom-col" style="flex:0.8;">
+        <h2>Events</h2>
+        <div id="event-log"></div>
+      </div>
+
+    </div><!-- .bottom -->
+  </div><!-- .main -->
+
+</div><!-- .layout -->
+
+<script src="/static/app.js"></script>
+</body>
+</html>
