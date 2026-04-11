@@ -7,7 +7,7 @@ import threading
 import time
 import sys
 
-FILE = "/home/liza/UCU/diploma/dataset/iq_recordings/002-rec.iq"
+FILE = "/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184609002-rec.iq"
 
 CENTER_FREQ = 5840e6
 SAMPLE_RATE = 20e6

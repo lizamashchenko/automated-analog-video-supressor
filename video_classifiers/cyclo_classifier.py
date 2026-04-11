@@ -8,7 +8,7 @@ class CycloClassifier (VideoClassifier):
         fft_size,
         ratio_threshold=2.5,
         score_threshold=6,
-        required_votes=3,
+        required_votes=4,
         logger=None
     ):
         self.sample_rate = sample_rate

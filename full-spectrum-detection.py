@@ -39,8 +39,8 @@ from utils.spectrum_manipulation import compute_power_spectrum, get_freq_key
 # Hack RF One setup
 LNA_GAIN = 32
 VGA_GAIN = 32
-MIN_FREQ = 5840e6   # Hz
-MAX_FREQ = 5850e6   # Hz
+MIN_FREQ = 100e6   # Hz
+MAX_FREQ = 6000e6   # Hz
 SAMPLE_RATE = 20e6  # Hz
 
 # FFT params
@@ -80,7 +80,7 @@ def fpv_detector():
             state.avg_power = None
 
         detections = []
-
+        all_samples = []
         device.tune(current_freq)
 
         # scan WIDE_SAMPLING_NUM times, to let SDR stabilize
@@ -99,7 +99,7 @@ def fpv_detector():
             power = compute_power_spectrum(samples, state)    
             plateaus = pl_detector.detect(power, current_freq)
             log.print_spectrum_bar(avg_power=state.avg_power, center_freq=current_freq)
-
+            all_samples.append(samples)
             if plateaus:
                 detections.append((samples, plateaus))
 
@@ -117,6 +117,7 @@ def fpv_detector():
             current_freq += SAMPLE_RATE
             continue
         
+        plateau["samples"] = all_samples
         # log events
         log.log_confirmed_plateau(plateau["center_freq"], plateau["bandwidth"], len(detections))
         log.log_event(
@@ -171,16 +172,29 @@ def fpv_detector():
 # -----------------------------
 
 log = SDRLogger(sample_rate=SAMPLE_RATE)
+
 device = HackRFDevice(sample_rate=SAMPLE_RATE)
+# no drone
 # device = FileDevice(
-#     iq_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260402_200558/iq.bin",
-#     meta_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260402_200558/metadata.csv",
+#     filepath="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_183603/iq.bin",
+#     metadata_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_183603/metadata.csv",
 #     sample_rate=SAMPLE_RATE
 # )
+
+# table drone
 # device = FileDevice(
-#     filepath="/home/liza/UCU/diploma/dataset/iq_recordings/002-rec.iq",
+#     filepath="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184542/iq.bin",
+#     metadata_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184542/metadata.csv",
 #     sample_rate=SAMPLE_RATE
 # )
+
+# wall drone
+# device = FileDevice(
+#     filepath="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_193518/iq.bin",
+#     metadata_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_193518/metadata.csv",
+#     sample_rate=SAMPLE_RATE
+# )
+
 reader = SDRReader(device, buffer_size=BUFFER_SIZE, logger=log)
 pl_detector = PlateauDetector(sample_rate=SAMPLE_RATE,
     fft_size=FFT_SIZE,
@@ -191,14 +205,13 @@ pl_detector = PlateauDetector(sample_rate=SAMPLE_RATE,
 
 # classifier = CycloClassifier(sample_rate=SAMPLE_RATE,
 #     fft_size=FFT_SIZE,
-#     required_votes=DEMOD_REQUIRED_HITS,
 #     logger=log)
 
-classifier = AutocorrClassifier(
-    sample_rate=SAMPLE_RATE,
-    required_votes=DEMOD_REQUIRED_HITS,
-    logger=log
-)
+# classifier = AutocorrClassifier(
+#     sample_rate=SAMPLE_RATE,
+#     required_votes=DEMOD_REQUIRED_HITS,
+#     logger=log
+# )
 
 reader.start()
 

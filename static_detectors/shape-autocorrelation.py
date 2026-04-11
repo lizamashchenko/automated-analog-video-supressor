@@ -5,7 +5,7 @@ class AutocorrClassifier:
     def __init__(
         self,
         sample_rate,
-        decimation=1,
+        decimation=10,
         line_freq=15625,       
         lag_tolerance=0.1,     
         peak_threshold=0.18,
@@ -68,42 +68,35 @@ class AutocorrClassifier:
         }
 
     def _autocorr_peak(self, iq):
-        # --- FM demod first (on full-rate IQ) ---
-        inst_freq = np.angle(iq[1:] * np.conj(iq[:-1]))
-        inst_freq -= np.mean(inst_freq)
+        # --- decimate ---
+        iq_d = iq[::self.decimation]
 
-        # --- low-pass + decimate to ~1 MHz effective rate ---
-        # video line rate is 15.625 kHz; 1 Msps gives us 64 samples/line,
-        # plenty to resolve the peak, and kills wideband noise
-        from scipy.signal import decimate
-        q = int(self.sample_rate // 1_000_000)  # e.g. 20 for 20 Msps -> 1 Msps
-        if q > 1:
-            inst_freq = decimate(inst_freq, q, ftype='fir', zero_phase=True)
-        fs_eff = self.sample_rate / q
+        # --- FM demod ---
+        inst_freq = np.angle(iq_d[1:] * np.conj(iq_d[:-1]))
+        inst_freq -= np.mean(inst_freq)      # remove DC / carrier offset
 
         n = len(inst_freq)
         if n < 2:
             return None
 
-        # --- autocorrelation ---
+        # --- autocorrelation (linear, not circular) ---
         corr = np.correlate(inst_freq, inst_freq, mode='full')
         corr = corr[len(corr) // 2:]
 
-        # normalize by zero-lag (this is the key stability fix)
-        if corr[0] < 1e-12:
+        max_val = np.max(corr)
+        if max_val < 1e-12:
             return None
-        corr = corr / corr[0]
+        corr /= max_val
 
         # --- evaluate peak near target lag ---
-        target_lag = int(round(fs_eff / self.line_freq))
-        tol = max(2, int(self.lag_tolerance * target_lag))
-        lag_lo = max(1, target_lag - tol)
-        lag_hi = min(len(corr) - 1, target_lag + tol)
+        target_lag = int(self.fs_decim / self.line_freq)
+        tol = max(1, int(self.lag_tolerance * target_lag))
 
-        if lag_hi <= lag_lo:
+        lag_lo = target_lag - tol
+        lag_hi = target_lag + tol
+
+        if lag_hi >= len(corr) or lag_lo < 1:
             return None
 
-        # subtract local baseline so we measure the *peak*, not DC bias
         region = corr[lag_lo:lag_hi + 1]
-        baseline = np.median(corr[1:lag_lo]) if lag_lo > 10 else 0.0
-        return float(np.max(region) - baseline)
+        return float(np.max(region))

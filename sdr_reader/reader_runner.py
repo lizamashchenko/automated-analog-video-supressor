@@ -26,6 +26,14 @@ class SDRReader:
         if self.thread:
             self.thread.join()
 
+    def flush(self):
+        """Discard all samples currently in the queue (call after device.tune())."""
+        while not self.queue.empty():
+            try:
+                self.queue.get_nowait()
+            except Exception:
+                break
+
     def _run(self):
         buff = np.empty(self.buffer_size, np.complex64)
 

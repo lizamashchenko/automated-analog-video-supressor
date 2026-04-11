@@ -3,9 +3,10 @@ from .base import VideoClassifier
 
 
 class HarmonicClassifier(VideoClassifier):
-    def __init__(self, required_hits=3, threshold_db=5, logger=None):
+    def __init__(self, required_hits=3, required_votes=4, threshold_db=5, logger=None):
         super().__init__("harmonic")
         self.required_hits = required_hits
+        self.required_votes = required_votes
         self.threshold_db = threshold_db
         self.logger = logger
 
@@ -37,24 +38,25 @@ class HarmonicClassifier(VideoClassifier):
                 if np.mean(power[mask]) - base_noise > self.threshold_db:
                     hits += 1
 
-            if hits >= 3:
+            if hits >= self.required_hits:
                 votes += 1
 
         if self.logger:
             self.logger.log_event(
                 "HARMONIC RESULT",
                 "Harmonic classification result ",
-                res=votes>=self.required_hits,
+                res=votes>=self.required_votes,
                 freq=center_freq,
+                hits=hits,
                 votes=votes,
-                required=self.required_hits
+                required=self.required_votes
             )
 
         return {
-            "confirmed": votes >= self.required_hits,
+            "confirmed": votes >= self.required_votes,
             "score": votes,
             "details": {
-                "required_hits": self.required_hits,
+                "required_votes": self.required_votes,
                 "base_noise": base_noise
             }
         }

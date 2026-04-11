@@ -53,7 +53,7 @@ sdr = SoapySDR.Device(dict(driver="hackrf"))
 
 sdr.setSampleRate(SOAPY_SDR_RX, 0, SAMPLE_RATE)
 sdr.setFrequency(SOAPY_SDR_RX, 0, CENTER_FREQ)
-sdr.setGain(SOAPY_SDR_RX, 0, "LNA", 32)
+sdr.setGain(SOAPY_SDR_RX, 0, "LNA", 40)
 sdr.setGain(SOAPY_SDR_RX, 0, "VGA", 32)
 
 rxStream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)

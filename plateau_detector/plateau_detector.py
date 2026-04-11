@@ -10,9 +10,9 @@ class PlateauDetector:
         freq_tolerance=2e6,
         above_noise_threshold=0.3,
         edge_drop_level=0.1,
-        min_lobe_size=0.1,
-        lobe_merge_gap=10.0,
-        min_video_width=2.0,
+        min_lobe_size=0.2,
+        lobe_merge_gap=5.0,
+        min_video_width=3.0,
         max_video_width=10,
         plateau_required_ratio=0.3,
         logger=None
@@ -140,7 +140,7 @@ class PlateauDetector:
                 bw_bins = cur_right - cur_left + 1
                 bw_mhz = bw_bins * self.mhz_per_bin
 
-                if bw_mhz >= self.min_video_width:
+                if bw_mhz >= self.min_video_width and bw_mhz <= self.max_video_width:
                     clusters.append((cur_left, cur_right, bw_mhz))
 
                 cur_left, cur_right = left, right
@@ -149,7 +149,7 @@ class PlateauDetector:
         bw_bins = cur_right - cur_left + 1
         bw_mhz = bw_bins * self.mhz_per_bin
 
-        if bw_mhz >= self.min_video_width:
+        if bw_mhz >= self.min_video_width and bw_mhz <= self.max_video_width:
             clusters.append((cur_left, cur_right, bw_mhz))
 
         return clusters

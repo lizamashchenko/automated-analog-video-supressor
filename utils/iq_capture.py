@@ -5,7 +5,7 @@ import time
 import os
 from datetime import datetime
 
-MIN_FREQ = 1000e6
+MIN_FREQ = 100e6
 MAX_FREQ = 6000e6
 
 SAMPLE_RATE = 20e6
