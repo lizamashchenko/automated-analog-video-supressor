@@ -35,7 +35,8 @@ class AutocorrClassifier:
                 votes += 1
 
             if self.logger:
-                self.logger.log_event(
+                self.logger.log_debug_event(
+                    "autocorr",
                     "AUTOCORR_SAMPLE",
                     "Per-buffer autocorr result",
                     freq=center_freq,
@@ -48,7 +49,8 @@ class AutocorrClassifier:
         confirmed = votes >= self.required_votes
 
         if self.logger:
-            self.logger.log_event(
+            self.logger.log_debug_event(
+                "autocorr",
                 "AUTOCORR_RESULT",
                 f"{self.name} classification",
                 freq=center_freq,
@@ -68,15 +70,11 @@ class AutocorrClassifier:
         }
 
     def _autocorr_peak(self, iq):
-        # --- FM demod first (on full-rate IQ) ---
         inst_freq = np.angle(iq[1:] * np.conj(iq[:-1]))
         inst_freq -= np.mean(inst_freq)
 
-        # --- low-pass + decimate to ~1 MHz effective rate ---
-        # video line rate is 15.625 kHz; 1 Msps gives us 64 samples/line,
-        # plenty to resolve the peak, and kills wideband noise
         from scipy.signal import decimate
-        q = int(self.sample_rate // 1_000_000)  # e.g. 20 for 20 Msps -> 1 Msps
+        q = int(self.sample_rate // 1_000_000)
         if q > 1:
             inst_freq = decimate(inst_freq, q, ftype='fir', zero_phase=True)
         fs_eff = self.sample_rate / q
@@ -85,16 +83,13 @@ class AutocorrClassifier:
         if n < 2:
             return None
 
-        # --- autocorrelation ---
         corr = np.correlate(inst_freq, inst_freq, mode='full')
         corr = corr[len(corr) // 2:]
 
-        # normalize by zero-lag (this is the key stability fix)
         if corr[0] < 1e-12:
             return None
         corr = corr / corr[0]
 
-        # --- evaluate peak near target lag ---
         target_lag = int(round(fs_eff / self.line_freq))
         tol = max(2, int(self.lag_tolerance * target_lag))
         lag_lo = max(1, target_lag - tol)
@@ -103,7 +98,6 @@ class AutocorrClassifier:
         if lag_hi <= lag_lo:
             return None
 
-        # subtract local baseline so we measure the *peak*, not DC bias
         region = corr[lag_lo:lag_hi + 1]
         baseline = np.median(corr[1:lag_lo]) if lag_lo > 10 else 0.0
         return float(np.max(region) - baseline)

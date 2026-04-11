@@ -9,6 +9,8 @@ class CycloClassifier (VideoClassifier):
         ratio_threshold=2.5,
         score_threshold=6,
         required_votes=4,
+        target_freq=15625,
+        harmonics=None,
         logger=None
     ):
         self.sample_rate = sample_rate
@@ -16,11 +18,10 @@ class CycloClassifier (VideoClassifier):
         self.ratio_threshold = ratio_threshold
         self.score_threshold = score_threshold
         self.required_votes = required_votes
+        self.target_freq = target_freq
+        self.harmonics = harmonics if harmonics is not None else [1, 2, 3, 4]
         self.logger = logger
         self.name = "cyclo"
-
-        self.target_freq = 15625
-        self.harmonics = [1, 2, 3, 4]
 
     def classify(self, samples_list, sample_rate, center_freq):
         votes = 0
@@ -65,7 +66,8 @@ class CycloClassifier (VideoClassifier):
         confirmed = votes >= self.required_votes
 
         if self.logger:
-            self.logger.log_event(
+            self.logger.log_debug_event(
+                "cyclo",
                 "CYCLO_RESULT",
                 "Cyclo classification result",
                 res=confirmed,

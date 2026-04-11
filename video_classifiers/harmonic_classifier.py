@@ -3,11 +3,23 @@ from .base import VideoClassifier
 
 
 class HarmonicClassifier(VideoClassifier):
-    def __init__(self, required_hits=3, required_votes=4, threshold_db=5, logger=None):
+    def __init__(
+        self,
+        required_hits=3,
+        required_votes=4,
+        threshold_db=5,
+        target_freq=15625,
+        sync_band=2000,
+        harmonics=None,
+        logger=None
+    ):
         super().__init__("harmonic")
         self.required_hits = required_hits
         self.required_votes = required_votes
         self.threshold_db = threshold_db
+        self.target_freq = target_freq
+        self.sync_band = sync_band
+        self.harmonics = harmonics if harmonics is not None else [1, 2, 3, 4]
         self.logger = logger
 
     def classify(self, samples_list, sample_rate, center_freq):
@@ -23,17 +35,13 @@ class HarmonicClassifier(VideoClassifier):
 
             base_noise = np.median(power)
 
-            target_freq = 15625
-            sync_band = 2000
-
-            harmonics = [1, 2, 3, 4]
             hits = 0
 
-            for h in harmonics:
-                f = h * target_freq
+            for h in self.harmonics:
+                f = h * self.target_freq
 
-                mask = (np.abs(freqs - f) < sync_band) | \
-                       (np.abs(freqs + f) < sync_band)
+                mask = (np.abs(freqs - f) < self.sync_band) | \
+                       (np.abs(freqs + f) < self.sync_band)
 
                 if np.mean(power[mask]) - base_noise > self.threshold_db:
                     hits += 1
@@ -42,9 +50,10 @@ class HarmonicClassifier(VideoClassifier):
                 votes += 1
 
         if self.logger:
-            self.logger.log_event(
-                "HARMONIC RESULT",
-                "Harmonic classification result ",
+            self.logger.log_debug_event(
+                "harmonic",
+                "HARMONIC_RESULT",
+                "Harmonic classification result",
                 res=votes>=self.required_votes,
                 freq=center_freq,
                 hits=hits,

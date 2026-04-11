@@ -1,0 +1,93 @@
+# ==========================
+# Logging
+# ==========================
+[logging]
+base_dir  = "logs"  # all runs are stored as subdirectories here
+verbosity = 1       # 1=errors+detections  2=+decisions  3=+component debug files  4=+raw IQ samples
+
+# ==========================
+# SDR Device
+# ==========================
+[sdr]
+sample_rate = 20_000_000    # Hz
+lna_gain    = 32
+vga_gain    = 32
+min_freq    = 100_000_000   # Hz
+max_freq    = 6_000_000_000 # Hz
+buffer_size = 262144
+
+# "hackrf" uses the live HackRF One.
+# "file"   replays a recorded sweep — set file_path and metadata_path below.
+[device]
+type          = "file"
+file_path     = "/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184635/iq.bin"
+metadata_path = "/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184635/metadata.csv"
+
+# ==========================
+# Spectrum / FFT
+# ==========================
+[fft]
+fft_size = 4096
+
+# ==========================
+# Coarse Scan
+# ==========================
+[scan]
+wide_sampling_num = 10
+
+# ==========================
+# Plateau Detection
+# ==========================
+[plateau]
+required_ratio        = 0.3         # fraction of scans that must hit to confirm
+freq_tolerance        = 2_000_000   # Hz — bin width for dedup map
+above_noise_threshold = 0.3         # dB above noise floor to count as a peak
+edge_drop_level       = 0.1         # how far below peak to mark lobe edge
+min_lobe_size         = 0.2         # MHz — discard lobes narrower than this
+lobe_merge_gap        = 5.0         # MHz — merge lobes closer than this
+min_video_width       = 3.0         # MHz — minimum plateau width to keep
+max_video_width       = 10.0        # MHz — maximum plateau width to keep
+
+# ==========================
+# Demodulation / Voting
+# ==========================
+[demod]
+max_samples_per_plateau = 5
+required_hits           = 3   # minimum sample buffers needed to run classifier
+
+# ==========================
+# Detection
+# ==========================
+[detection]
+active_classifier = "harmonic"   # "harmonic" | "cyclo" | "autocorr"
+
+# ==========================
+# Harmonic Classifier
+# ==========================
+[classifier.harmonic]
+required_hits  = 3
+required_votes = 4
+threshold_db   = 5
+target_freq    = 15625        # Hz — PAL/NTSC line rate
+sync_band      = 2000         # Hz — ±window around each harmonic
+harmonics      = [1, 2, 3, 4]
+
+# ==========================
+# Cyclostationary Classifier
+# ==========================
+[classifier.cyclo]
+ratio_threshold = 2.5
+score_threshold = 6
+required_votes  = 4
+target_freq     = 15625        # Hz — PAL/NTSC line rate
+harmonics       = [1, 2, 3, 4]
+
+# ==========================
+# Autocorrelation Classifier
+# ==========================
+[classifier.autocorr]
+decimation     = 1
+line_freq      = 15625   # Hz — expected lag frequency
+lag_tolerance  = 0.1     # fraction of target lag used as ±window
+peak_threshold = 0.18    # normalised autocorr peak required to vote
+required_votes = 2

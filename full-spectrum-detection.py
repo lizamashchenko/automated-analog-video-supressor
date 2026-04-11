@@ -1,8 +1,10 @@
+import argparse
 import SoapySDR
 from SoapySDR import *
 import numpy as np
 import time
 
+from utils.config import load as load_config
 from utils.logger import SDRLogger
 from rf_devices.hackrf_device import HackRFDevice
 from rf_devices.file_devicie import FileDevice
@@ -26,42 +28,66 @@ from utils.spectrum_manipulation import compute_power_spectrum, get_freq_key
 
 # make an application
 # introduce overlap
-# adaptive thresholds 
+# adaptive thresholds
 # limit maximums, for jammer detection
-# no tagged freq, can read old samples 
+# no tagged freq, can read old samples
 # add debug mode to save time
 # global config, normal exit
 
 # -----------------------------
-# PARAMETERS
+# CONFIGURATION
 # -----------------------------
 
-# Hack RF One setup
-LNA_GAIN = 32
-VGA_GAIN = 32
-MIN_FREQ = 100e6   # Hz
-MAX_FREQ = 6000e6   # Hz
-SAMPLE_RATE = 20e6  # Hz
+parser = argparse.ArgumentParser(description="Full-spectrum FPV drone detector")
+parser.add_argument("--classifier", choices=["harmonic", "cyclo", "autocorr"],
+                    help="Classifier to use (overrides config)")
+parser.add_argument("--device", choices=["hackrf", "file"],
+                    help="Device type (overrides config)")
+parser.add_argument("--file-path", metavar="PATH",
+                    help="IQ binary file path (required when --device=file)")
+parser.add_argument("--metadata-path", metavar="PATH",
+                    help="Metadata CSV path (required when --device=file)")
+parser.add_argument("--run-name", metavar="NAME",
+                    help="Name for this run's log folder (default: timestamp)")
+parser.add_argument("--verbosity", type=int, choices=[1, 2, 3, 4], metavar="1-4",
+                    help="Log detail level (overrides config)")
+args = parser.parse_args()
 
-# FFT params
-FFT_SIZE = 4096
-BUFFER_SIZE = 262144
+cfg = load_config()
 
-# Coarse scan params
-WIDE_SAMPLING_NUM = 10
-PLATEU_REQUIRED_RATIO = 0.3
-PLATEU_REQUIRED_HITS = int(WIDE_SAMPLING_NUM * PLATEU_REQUIRED_RATIO)
+# CLI overrides
+if args.device:
+    cfg["device"]["type"] = args.device
+if args.file_path:
+    cfg["device"]["file_path"] = args.file_path
+if args.metadata_path:
+    cfg["device"]["metadata_path"] = args.metadata_path
+if args.classifier:
+    cfg["detection"]["active_classifier"] = args.classifier
+if args.verbosity:
+    cfg["logging"]["verbosity"] = args.verbosity
 
-# Demodulation thresholds
-MAX_SAMPLES_PER_PLATEAU = 5
-DEMOD_REQUIRED_HITS = 3
-FREQ_TOLERANCE = 2e6  # Hz
+SAMPLE_RATE  = cfg["sdr"]["sample_rate"]
+LNA_GAIN     = cfg["sdr"]["lna_gain"]
+VGA_GAIN     = cfg["sdr"]["vga_gain"]
+MIN_FREQ     = cfg["sdr"]["min_freq"]
+MAX_FREQ     = cfg["sdr"]["max_freq"]
+BUFFER_SIZE  = cfg["sdr"]["buffer_size"]
+
+FFT_SIZE     = cfg["fft"]["fft_size"]
+
+WIDE_SAMPLING_NUM    = cfg["scan"]["wide_sampling_num"]
+PLATEU_REQUIRED_HITS = int(WIDE_SAMPLING_NUM * cfg["plateau"]["required_ratio"])
+FREQ_TOLERANCE       = cfg["plateau"]["freq_tolerance"]
+
+MAX_SAMPLES_PER_PLATEAU = cfg["demod"]["max_samples_per_plateau"]
+DEMOD_REQUIRED_HITS     = cfg["demod"]["required_hits"]
 
 # Data structures
 class ScanState:
     def __init__(self):
         self.avg_power = None
-        self.avg_power_map = {} 
+        self.avg_power_map = {}
         self.plateau_map = {}
 
 # Detector
@@ -70,7 +96,7 @@ def fpv_detector():
     state = ScanState()
     current_freq = MIN_FREQ
 
-    # coarse plateu scan
+    # coarse plateau scan
     while current_freq < MAX_FREQ:
         key = get_freq_key(current_freq)
 
@@ -92,11 +118,12 @@ def fpv_detector():
                 log.log_event(
                     "ZERO_BUFFER",
                     "All samples are zero",
+                    level=1,
                     freq=current_freq
                 )
                 continue
 
-            power = compute_power_spectrum(samples, state)    
+            power = compute_power_spectrum(samples, state)
             plateaus = pl_detector.detect(power, current_freq)
             log.print_spectrum_bar(avg_power=state.avg_power, center_freq=current_freq)
             all_samples.append(samples)
@@ -107,22 +134,24 @@ def fpv_detector():
 
         if not plateau:
             if len(detections) > 0:
-                log.log_event (
-                        "PLATEAU_REJECTED",
-                        "Not enough hits",
-                        hits=len(detections),
-                        required=PLATEU_REQUIRED_HITS,
-                        freq=current_freq
+                log.log_event(
+                    "PLATEAU_REJECTED",
+                    "Not enough hits",
+                    level=2,
+                    hits=len(detections),
+                    required=PLATEU_REQUIRED_HITS,
+                    freq=current_freq
                 )
             current_freq += SAMPLE_RATE
             continue
-        
+
         plateau["samples"] = all_samples
         # log events
         log.log_confirmed_plateau(plateau["center_freq"], plateau["bandwidth"], len(detections))
         log.log_event(
             "PLATEAU_CONFIRMED",
             "Wideband signal detected",
+            level=2,
             freq=plateau["center_freq"],
             bw=plateau["bandwidth"],
             hits=len(detections)
@@ -154,13 +183,16 @@ def fpv_detector():
             log.log_event(
                 "VIDEO_CONFIRMED",
                 f"{classifier.name} confirmed video",
+                level=2,
                 freq=center_freq,
                 score=result["score"]
             )
+            log.log_video_samples(center_freq, samples_list)
         else:
             log.log_event(
                 "VIDEO_REJECTED",
                 f"{classifier.name} rejected video",
+                level=2,
                 freq=center_freq,
                 score=result["score"]
             )
@@ -171,47 +203,84 @@ def fpv_detector():
 # DEVICE SETUP
 # -----------------------------
 
-log = SDRLogger(sample_rate=SAMPLE_RATE)
+log = SDRLogger(
+    base_log_dir=cfg["logging"]["base_dir"],
+    run_name=args.run_name,
+    sample_rate=SAMPLE_RATE,
+    verbosity=cfg["logging"]["verbosity"]
+)
 
-device = HackRFDevice(sample_rate=SAMPLE_RATE)
-# no drone
-# device = FileDevice(
-#     filepath="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_183603/iq.bin",
-#     metadata_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_183603/metadata.csv",
-#     sample_rate=SAMPLE_RATE
-# )
-
-# table drone
-# device = FileDevice(
-#     filepath="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184542/iq.bin",
-#     metadata_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184542/metadata.csv",
-#     sample_rate=SAMPLE_RATE
-# )
-
-# wall drone
-# device = FileDevice(
-#     filepath="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_193518/iq.bin",
-#     metadata_path="/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_193518/metadata.csv",
-#     sample_rate=SAMPLE_RATE
-# )
+dev_cfg = cfg["device"]
+if dev_cfg["type"] == "hackrf":
+    device = HackRFDevice(
+        sample_rate=SAMPLE_RATE,
+        lna_gain=LNA_GAIN,
+        vga_gain=VGA_GAIN
+    )
+elif dev_cfg["type"] == "file":
+    device = FileDevice(
+        filepath=dev_cfg["file_path"],
+        metadata_path=dev_cfg["metadata_path"],
+        sample_rate=SAMPLE_RATE
+    )
+else:
+    raise ValueError(f"Unknown device type: {dev_cfg['type']!r}. Use 'hackrf' or 'file'.")
 
 reader = SDRReader(device, buffer_size=BUFFER_SIZE, logger=log)
-pl_detector = PlateauDetector(sample_rate=SAMPLE_RATE,
+
+pl_cfg = cfg["plateau"]
+pl_detector = PlateauDetector(
+    sample_rate=SAMPLE_RATE,
     fft_size=FFT_SIZE,
     wide_sampling_num=WIDE_SAMPLING_NUM,
-    logger=log)
+    freq_tolerance=pl_cfg["freq_tolerance"],
+    above_noise_threshold=pl_cfg["above_noise_threshold"],
+    edge_drop_level=pl_cfg["edge_drop_level"],
+    min_lobe_size=pl_cfg["min_lobe_size"],
+    lobe_merge_gap=pl_cfg["lobe_merge_gap"],
+    min_video_width=pl_cfg["min_video_width"],
+    max_video_width=pl_cfg["max_video_width"],
+    plateau_required_ratio=pl_cfg["required_ratio"],
+    logger=log
+)
 
-# classifier = HarmonicClassifier(logger=log)
-
-# classifier = CycloClassifier(sample_rate=SAMPLE_RATE,
-#     fft_size=FFT_SIZE,
-#     logger=log)
-
-# classifier = AutocorrClassifier(
-#     sample_rate=SAMPLE_RATE,
-#     required_votes=DEMOD_REQUIRED_HITS,
-#     logger=log
-# )
+active = cfg["detection"]["active_classifier"]
+if active == "harmonic":
+    h = cfg["classifier"]["harmonic"]
+    classifier = HarmonicClassifier(
+        required_hits=h["required_hits"],
+        required_votes=h["required_votes"],
+        threshold_db=h["threshold_db"],
+        target_freq=h["target_freq"],
+        sync_band=h["sync_band"],
+        harmonics=h["harmonics"],
+        logger=log
+    )
+elif active == "cyclo":
+    c = cfg["classifier"]["cyclo"]
+    classifier = CycloClassifier(
+        sample_rate=SAMPLE_RATE,
+        fft_size=FFT_SIZE,
+        ratio_threshold=c["ratio_threshold"],
+        score_threshold=c["score_threshold"],
+        required_votes=c["required_votes"],
+        target_freq=c["target_freq"],
+        harmonics=c["harmonics"],
+        logger=log
+    )
+elif active == "autocorr":
+    a = cfg["classifier"]["autocorr"]
+    classifier = AutocorrClassifier(
+        sample_rate=SAMPLE_RATE,
+        decimation=a["decimation"],
+        line_freq=a["line_freq"],
+        lag_tolerance=a["lag_tolerance"],
+        peak_threshold=a["peak_threshold"],
+        required_votes=a["required_votes"],
+        logger=log
+    )
+else:
+    raise ValueError(f"Unknown classifier: {active!r}. Use 'harmonic', 'cyclo', or 'autocorr'.")
 
 reader.start()
 
