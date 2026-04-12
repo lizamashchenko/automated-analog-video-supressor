@@ -4,3 +4,4 @@ logs/
 capture_log/
 demod_logs/
 archives/
+__pycache__/
