@@ -8,11 +8,6 @@ from detector import Detector
 # test UI functionality
 # tune params
 
-
-# -----------------------------
-# CONFIGURATION
-# -----------------------------
-
 parser = argparse.ArgumentParser(description="Full-spectrum FPV drone detector")
 parser.add_argument("--classifier", choices=["harmonic", "cyclo", "autocorr"], help="Classifier to use (overrides config)")
 parser.add_argument("--device", choices=["hackrf", "file"], help="Device type (overrides config)")

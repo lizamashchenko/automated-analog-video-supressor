@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from scipy.signal import decimate
 
-LINE_FREQ   = 15_625
+LINE_FREQ   = 15_734
 HARMONICS   = [1, 2, 3, 4]
 DECIM_RATE  = None
 

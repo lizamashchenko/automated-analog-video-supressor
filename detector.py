@@ -98,13 +98,14 @@ class Detector:
         if active == "harmonic":
             h = cfg["classifier"]["harmonic"]
             self.classifier = HarmonicClassifier(
-                required_hits   = h["required_hits"],
-                required_votes  = h["required_votes"],
-                threshold_db    = h["threshold_db"],
-                target_freq     = h["target_freq"],
-                sync_band       = h["sync_band"],
-                harmonics       = h["harmonics"],
-                logger          = self.log
+                required_harmonics = h["required_harmonics"],
+                harmonic_ratio     = h["harmonic_ratio"],
+                threshold_db       = h["threshold_db"],
+                valley_drop_db     = h["valley_drop_db"],
+                target_freq        = h["target_freq"],
+                sync_band          = h["sync_band"],
+                harmonics          = h["harmonics"],
+                logger             = self.log
             )
         elif active == "cyclo":
             c = cfg["classifier"]["cyclo"]
@@ -270,6 +271,9 @@ class Detector:
                     "score":        result["score"],
                     "sweep_num":    sweep_num
                 })
+
+            elif (center_freq > 5830000000 and center_freq < 5850000000):
+                self.log.log_video_samples(center_freq, samples_list) 
 
             else:
                 self.log.log_event("VIDEO_REJECTED", f"{self.classifier.name} rejected video", level = 2, freq = center_freq, score = result["score"])

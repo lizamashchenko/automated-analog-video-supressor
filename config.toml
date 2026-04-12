@@ -20,8 +20,31 @@ buffer_size = 262144
 # "file"   replays a recorded sweep — set file_path and metadata_path below.
 [device]
 type          = "file"
-file_path     = "/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184635/iq.bin"
-metadata_path = "/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184635/metadata.csv"
+
+# no drone
+# name - harmonic res
+# sweep_20260407_183603 - 1fp 2142000000
+# sweep_20260407_183747 - 1fp 2142000000
+# sweep_20260407_183646 - good
+# sweep_20260407_183847 - good
+# sweep_20260407_183944 - good
+
+# drone on the table
+# sweep_20260407_184542 - fp on 700, p
+# sweep_20260407_184609 - fp on 700, p
+# sweep_20260407_184635 - fp on 700, p
+# sweep_20260407_184702 - fp on 700, p
+# sweep_20260407_184730 - 1fp + on 700, p
+
+# drone through the wall
+# sweep_20260407_193518 - 0 fp, 1 p
+# sweep_20260407_193545 - 0 fp, 1p
+# sweep_20260407_193626 - 1fp 0p
+# sweep_20260407_193653 - no plateau, fp on 700
+
+
+file_path     = "/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_183944/iq.bin"
+metadata_path = "/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_183944/metadata.csv"
 
 # ==========================
 # Spectrum / FFT
@@ -65,12 +88,13 @@ active_classifier = "harmonic"   # "harmonic" | "cyclo" | "autocorr"
 # Harmonic Classifier
 # ==========================
 [classifier.harmonic]
-required_hits  = 3
-required_votes = 4
-threshold_db   = 5
-target_freq    = 15625        # Hz — PAL/NTSC line rate
-sync_band      = 2000         # Hz — ±window around each harmonic
-harmonics      = [1, 2, 3, 4]
+required_harmonics = 3       # how many harmonics must be consistently present
+harmonic_ratio     = 0.4     # fraction of buffers a harmonic must appear in to count
+threshold_db       = 6       # dB above noise floor the peak must be
+valley_drop_db     = 4       # dB the midpoint between peaks must be below the peak
+target_freq        = 15625   # Hz — PAL line rate (use 15734 for NTSC)
+sync_band          = 2000    # Hz — ±window around each peak/valley sample point
+harmonics          = [1, 2, 3, 4]  # 0 = near-DC, 1 = 1×f, 2 = 2×f, 3 = 3×f
 
 # ==========================
 # Cyclostationary Classifier
