@@ -117,6 +117,8 @@ class Detector:
                 required_votes  = c["required_votes"],
                 target_freq     = c["target_freq"],
                 harmonics       = c["harmonics"],
+                min_harmonics   = c.get("min_harmonics", 2),
+                max_harmonic_spread_db = c.get("max_harmonic_spread_db", 15),
                 logger          = self.log
             )
         elif active == "autocorr":

@@ -11,6 +11,8 @@ class CycloClassifier (VideoClassifier):
         required_votes = 4,
         target_freq = 15625,
         harmonics = None,
+        min_harmonics = 2,
+        max_harmonic_spread_db = 15,
         logger = None
     ):
         self.sample_rate = sample_rate
@@ -20,6 +22,8 @@ class CycloClassifier (VideoClassifier):
         self.required_votes = required_votes
         self.target_freq = target_freq
         self.harmonics = harmonics if harmonics is not None else [1, 2, 3, 4]
+        self.min_harmonics = min_harmonics
+        self.max_harmonic_spread_db = max_harmonic_spread_db
         self.logger = logger
         self.name = "cyclo"
 
@@ -45,10 +49,12 @@ class CycloClassifier (VideoClassifier):
             freqs = np.fft.fftfreq(N, 1 / self.sample_rate)
             S_mag = np.abs(S)
 
-            noise_floor = np.mean(S_mag)
+            noise_floor = np.median(S_mag)
 
             score = 0
             ratios = []
+            harmonic_db = []
+            harmonics_above = 0
 
             for h in self.harmonics:
                 f = h * self.target_freq
@@ -56,12 +62,32 @@ class CycloClassifier (VideoClassifier):
 
                 ratio = S_mag[idx] / (noise_floor + 1e-6)
                 ratios.append(ratio)
+                harmonic_db.append(20 * np.log10(S_mag[idx] + 1e-12))
 
                 if ratio > self.ratio_threshold:
                     score += ratio
+                    harmonics_above += 1
 
-            if ratios[0] >= self.ratio_threshold:
+            max_spread = max(
+                abs(harmonic_db[j+1] - harmonic_db[j])
+                for j in range(len(harmonic_db) - 1)
+            )
+
+            self.logger.log_debug_event(
+                "cyclo",
+                "CYCLO_SAMPLE",
+                "Cyclo classification sample",
+                freq = center_freq,
+                ratios = [round(r, 3) for r in ratios],
+                threshold = self.ratio_threshold,
+                score = score,
+                harmonics_above = harmonics_above,
+                max_spread_db = round(max_spread, 2)
+            )
+
+            if harmonics_above >= self.min_harmonics and max_spread <= self.max_harmonic_spread_db:
                 votes += 1
+                
 
         confirmed = votes >= self.required_votes
 
