@@ -98,14 +98,15 @@ class Detector:
         if active == "harmonic":
             h = cfg["classifier"]["harmonic"]
             self.classifier = HarmonicClassifier(
-                required_harmonics = h["required_harmonics"],
-                harmonic_ratio     = h["harmonic_ratio"],
-                threshold_db       = h["threshold_db"],
-                valley_drop_db     = h["valley_drop_db"],
-                target_freq        = h["target_freq"],
-                sync_band          = h["sync_band"],
-                harmonics          = h["harmonics"],
-                logger             = self.log
+                required_harmonics     = h["required_harmonics"],
+                harmonic_ratio         = h["harmonic_ratio"],
+                threshold_db           = h["threshold_db"],
+                valley_drop_db         = h["valley_drop_db"],
+                max_harmonic_spread_db = h["max_harmonic_spread_db"],
+                target_freq            = h["target_freq"],
+                sync_band              = h["sync_band"],
+                harmonics              = h["harmonics"],
+                logger                 = self.log
             )
         elif active == "cyclo":
             c = cfg["classifier"]["cyclo"]
@@ -124,13 +125,15 @@ class Detector:
         elif active == "autocorr":
             a = cfg["classifier"]["autocorr"]
             self.classifier = AutocorrClassifier(
-                sample_rate     = cfg["sdr"]["sample_rate"],
-                decimation      = a["decimation"],
-                line_freq       = a["line_freq"],
-                lag_tolerance   = a["lag_tolerance"],
-                peak_threshold  = a["peak_threshold"],
-                required_votes  = a["required_votes"],
-                logger          = self.log
+                sample_rate         = cfg["sdr"]["sample_rate"],
+                decimation          = a["decimation"],
+                line_freq           = a["line_freq"],
+                lag_tolerance       = a["lag_tolerance"],
+                peak_threshold      = a["peak_threshold"],
+                secondary_threshold = a["secondary_threshold"],
+                lag_strict          = a["lag_strict"],
+                required_votes      = a["required_votes"],
+                logger              = self.log
             )
         else:
             raise ValueError(f"Unknown classifier: {active!r}")
@@ -274,7 +277,7 @@ class Detector:
                     "sweep_num":    sweep_num
                 })
 
-            elif (center_freq > 5830000000 and center_freq < 5850000000):
+            elif (center_freq > 5_830_000_000 and center_freq < 5_860_000_000):
                 self.log.log_video_samples(center_freq, samples_list) 
 
             else:

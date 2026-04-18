@@ -71,27 +71,41 @@ class PlateauDetector:
         smoothed = np.convolve(power, np.ones(3)/3, mode='same')
         noise_floor = np.median(smoothed)
 
-        peak_indices = np.where(
-            (smoothed[1:-1] > smoothed[:-2]) &
-            (smoothed[1:-1] > smoothed[2:]) &
-            (smoothed[1:-1] > noise_floor + self.above_noise_threshold)
-        )[0] + 1
+        above = smoothed[1:-1] - (noise_floor + self.above_noise_threshold)
+        peak_mask = (smoothed[1:-1] > smoothed[:-2]) & (smoothed[1:-1] > smoothed[2:]) & (above > 0)
+        peak_indices = np.where(peak_mask)[0] + 1
+        max_above = float(np.max(above)) if len(above) > 0 else 0.0
 
         lobes = self._expand_to_lobes(smoothed, peak_indices, noise_floor)
-        clusters = self._merge_lobes(lobes)
+        merged, rejected_merged = self._merge_lobes(lobes)
 
         if self.logger:
+            max_lobe_mhz = 0.0
+            if lobes:
+                max_lobe_mhz = max((r - l + 1) * self.mhz_per_bin for l, r in lobes)
+            max_merged_mhz = 0.0
+            if rejected_merged:
+                max_merged_mhz = max(rejected_merged)
+            if merged:
+                max_merged_mhz = max(max_merged_mhz, max(bw for _, _, bw in merged))
+
             self.logger.log_debug_event(
                 "plateau",
                 "CLUSTER_DEBUG",
                 "Cluster detection stats",
-                noise=float(noise_floor),
+                noise=round(float(noise_floor), 2),
+                max_above_noise=round(max_above, 2),
+                thresh=self.above_noise_threshold,
                 peaks=len(peak_indices),
                 lobes=len(lobes),
-                clusters=len(clusters)
+                max_lobe_mhz=round(max_lobe_mhz, 2),
+                merged_total=len(merged) + len(rejected_merged),
+                max_merged_mhz=round(max_merged_mhz, 2),
+                clusters=len(merged),
+                width_range=f"{self.min_video_width}-{self.max_video_width}",
             )
 
-        return clusters
+        return merged
 
     def _expand_to_lobes(self, data, peaks, noise):
         edge_threshold = noise + self.edge_drop_level
@@ -116,9 +130,10 @@ class PlateauDetector:
 
     def _merge_lobes(self, lobes):
         clusters = []
+        rejected_widths = []
 
         if not lobes:
-            return clusters
+            return clusters, rejected_widths
 
         lobes.sort()
         cur_left, cur_right = lobes[0]
@@ -132,6 +147,8 @@ class PlateauDetector:
 
                 if bw_mhz >= self.min_video_width and bw_mhz <= self.max_video_width:
                     clusters.append((cur_left, cur_right, bw_mhz))
+                else:
+                    rejected_widths.append(bw_mhz)
 
                 cur_left, cur_right = left, right
 
@@ -140,8 +157,10 @@ class PlateauDetector:
 
         if bw_mhz >= self.min_video_width and bw_mhz <= self.max_video_width:
             clusters.append((cur_left, cur_right, bw_mhz))
+        else:
+            rejected_widths.append(bw_mhz)
 
-        return clusters
+        return clusters, rejected_widths
 
     def _extract_plateau(self, clusters, freqs):
         if not clusters:

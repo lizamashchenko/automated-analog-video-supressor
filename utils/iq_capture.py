@@ -5,7 +5,7 @@ import numpy as np
 import time
 import os
 from datetime import datetime
-from utils.config import load as load_config
+from config import load as load_config
 
 cfg = load_config()
 

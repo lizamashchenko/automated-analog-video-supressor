@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.signal import decimate
 
 
 class AutocorrClassifier:
@@ -6,31 +7,44 @@ class AutocorrClassifier:
         self,
         sample_rate,
         decimation = 1,
-        line_freq = 15625,       
-        lag_tolerance = 0.1,     
-        peak_threshold = 0.18,
-        required_votes = 2,
+        line_freq = 15625,
+        lag_tolerance = 0.1,        
+        peak_threshold = 0.55,
+        secondary_threshold = 0.2,
+        lag_strict = 1,
+        required_votes = 3,
         logger = None
     ):
-        self.sample_rate    = sample_rate
-        self.decimation     = decimation
-        self.fs_decim       = sample_rate / decimation
-        self.line_freq      = line_freq
-        self.lag_tolerance  = lag_tolerance
-        self.peak_threshold = peak_threshold
-        self.required_votes = required_votes
-        self.logger         = logger
-        self.name           = "AutocorrClassifier"
+        self.sample_rate         = sample_rate
+        self.decimation          = decimation
+        self.line_freq           = line_freq
+        self.lag_tolerance       = lag_tolerance
+        self.peak_threshold      = peak_threshold
+        self.secondary_threshold = secondary_threshold
+        self.lag_strict          = lag_strict
+        self.required_votes      = required_votes
+        self.logger              = logger
+        self.name                = "AutocorrClassifier"
 
     def classify(self, samples_list, sample_rate, center_freq):
         votes = 0
         peaks = []
 
         for iq in samples_list:
-            peak = self._autocorr_peak(iq)
-            peaks.append(peak)
+            result = self._autocorr_peak(iq)
+            peaks.append(result)
 
-            confirmed = peak is not None and peak > self.peak_threshold
+            if result is None:
+                confirmed = False
+                p1 = p2 = lag_off = -1.0
+            else:
+                p1, p2, lag_off = result
+                confirmed = (
+                    p1 > self.peak_threshold
+                    and p2 > self.secondary_threshold
+                    and abs(lag_off) <= self.lag_strict
+                )
+
             if confirmed:
                 votes += 1
 
@@ -40,7 +54,9 @@ class AutocorrClassifier:
                     "AUTOCORR_SAMPLE",
                     "Per-buffer autocorr result",
                     freq = center_freq,
-                    peak = float(peak) if peak is not None else -1.0,
+                    peak = float(p1),
+                    peak2 = float(p2),
+                    lag_off = float(lag_off),
                     confirmed = confirmed,
                 )
 
@@ -65,15 +81,14 @@ class AutocorrClassifier:
             "confirmed": confirmed,
             "details": {
                 "votes": votes,
-                "peaks": peaks
-            }
+                "peaks": peaks,
+            },
         }
 
     def _autocorr_peak(self, iq):
         inst_freq = np.angle(iq[1:] * np.conj(iq[:-1]))
         inst_freq -= np.mean(inst_freq)
 
-        from scipy.signal import decimate
         q = int(self.sample_rate // 1_000_000)
         if q > 1:
             inst_freq = decimate(inst_freq, q, ftype = 'fir', zero_phase = True)
@@ -91,13 +106,27 @@ class AutocorrClassifier:
         corr = corr / corr[0]
 
         target_lag = int(round(fs_eff / self.line_freq))
-        tol = max(2, int(self.lag_tolerance * target_lag))
-        lag_lo = max(1, target_lag - tol)
-        lag_hi = min(len(corr) - 1, target_lag + tol)
+        tol        = max(2, int(self.lag_tolerance * target_lag))
 
-        if lag_hi <= lag_lo:
+        p1, argmax1 = self._harmonic_peak(corr, target_lag, tol)
+        if p1 is None:
             return None
+        lag_off = argmax1 - target_lag
 
-        region = corr[lag_lo:lag_hi + 1]
-        baseline = np.median(corr[1:lag_lo]) if lag_lo > 10 else 0.0
-        return float(np.max(region) - baseline)
+        baseline_hi = max(1, target_lag - tol)
+        baseline = float(np.median(corr[1:baseline_hi])) if baseline_hi > 10 else 0.0
+        p1 = p1 - baseline
+
+        p2_raw, _ = self._harmonic_peak(corr, 2 * target_lag, tol)
+        p2 = (p2_raw - baseline) if p2_raw is not None else 0.0
+
+        return float(p1), float(p2), int(lag_off)
+
+    @staticmethod
+    def _harmonic_peak(corr, lag, tol):
+        lo = max(1, lag - tol)
+        hi = min(len(corr) - 1, lag + tol)
+        if hi <= lo:
+            return None, None
+        region = corr[lo:hi + 1]
+        return float(np.max(region)), int(region.argmax()) + lo
