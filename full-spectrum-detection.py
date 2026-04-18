@@ -1,4 +1,5 @@
 import argparse
+import threading
 
 from utils.config import load as load_config
 from detector import Detector
@@ -39,43 +40,60 @@ if args.max_freq:
 
 cfg["sweeps"] = args.sweeps
 
+_print_lock = threading.Lock()
+_on_progress = False
+
+def _clear_progress():
+    global _on_progress
+    if _on_progress:
+        print(f"\r{' ' * 80}\r", end="", flush=True)
+        _on_progress = False
+
 def _print_event(event_type, data):
-    if event_type == "status":
-        print(f"[{data['state'].upper()}]" +
-              (f"  run: {data['run_name']}" if "run_name" in data else ""))
-    elif event_type == "sweep_start":
-        print(f"\n{'=' * 60}")
-        print(f"Sweep {data['sweep_num'] + 1}  "
-              f"{data['min_freq'] / 1e6:.0f}–{data['max_freq'] / 1e6:.0f} MHz")
-        print("=" * 60)
-    elif event_type == "plateau_confirmed":
-        print(f"  [PLATEAU] {data['freq'] / 1e6:.1f} MHz  "
-              f"bw={data['bandwidth']:.1f} MHz  hits={data['hits']}")
-    elif event_type == "video_confirmed":
-        print(f"  [CONFIRMED] {data['freq'] / 1e6:.1f} MHz  "
-              f"{data['classifier']}  score={data['score']:.2f}")
-    elif event_type == "video_rejected":
-        print(f"  [rejected]  {data['freq'] / 1e6:.1f} MHz  "
-              f"{data['classifier']}  score={data['score']:.2f}")
-    elif event_type == "sweep_complete":
-        print(f"\nSweep {data['sweep_num'] + 1} done  plateaus={data['plateaus']}")
-        print("-" * 60)
-    elif event_type == "error":
-        freq = data.get("freq", "")
-        print(f"  [ERROR] {data['error_type']}  {data['message']}"
-              + (f"  @ {freq/1e6:.1f} MHz" if freq else ""))
-    elif event_type == "freq_update":
-        print(f"\r  scanning {data['freq'] / 1e6:.1f} MHz  "
-              f"[{'#' * int(data['progress'] * 30):<30}] "
-              f"{data['progress'] * 100:.0f}%",
-              end="", flush=True)
+    global _on_progress
+
+    with _print_lock:
+        if event_type == "freq_update":
+            _on_progress = True
+            print(f"\r  scanning {data['freq'] / 1e6:.1f} MHz  "
+                  f"[{'#' * int(data['progress'] * 30):<30}] "
+                  f"{data['progress'] * 100:.0f}%",
+                  end="", flush=True)
+            return
+
+        _clear_progress()
+
+        if event_type == "status":
+            print(f"[{data['state'].upper()}]" +
+                  (f"  run: {data['run_name']}" if "run_name" in data else ""))
+        elif event_type == "sweep_start":
+            print(f"\n{'=' * 60}")
+            print(f"Sweep {data['sweep_num'] + 1}  "
+                  f"{data['min_freq'] / 1e6:.0f}–{data['max_freq'] / 1e6:.0f} MHz")
+            print("=" * 60)
+        elif event_type == "plateau_confirmed":
+            print(f"  [PLATEAU] {data['freq'] / 1e6:.1f} MHz  "
+                  f"bw={data['bandwidth']:.1f} MHz  hits={data['hits']}")
+        elif event_type == "video_confirmed":
+            print(f"  [CONFIRMED] {data['freq'] / 1e6:.1f} MHz  "
+                  f"{data['classifier']}  score={data['score']:.2f}")
+        elif event_type == "video_rejected":
+            print(f"  [rejected]  {data['freq'] / 1e6:.1f} MHz  "
+                  f"{data['classifier']}  score={data['score']:.2f}")
+        elif event_type == "sweep_complete":
+            print(f"\nSweep {data['sweep_num'] + 1} done  plateaus={data['plateaus']}")
+            print("-" * 60)
+        elif event_type == "error":
+            freq = data.get("freq", "")
+            print(f"  [ERROR] {data['error_type']}  {data['message']}"
+                  + (f"  @ {freq/1e6:.1f} MHz" if freq else ""))
 
 
 detector = Detector(cfg, on_event = _print_event)
 detector.start(run_name = args.run_name)
 
 try:
-    detector._thread.join()
+    detector.join()
 
 except KeyboardInterrupt:
     print("\nStopping...")

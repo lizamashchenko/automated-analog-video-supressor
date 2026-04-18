@@ -1,4 +1,5 @@
 import threading
+import queue
 import numpy as np
 
 from utils.logger import SDRLogger
@@ -12,36 +13,58 @@ class ScanState:
     def __init__(self):
         self.avg_power      = None
         self.avg_power_map  = {}
-        self.plateau_map    = {}
 
 class Detector:
     def __init__(self, cfg, on_event = None):
         self.cfg            = cfg
         self.on_event       = on_event or (lambda t, d: None)
         self._stop          = threading.Event()
-        self._thread        = None
+        self._scan_thread   = None
+        self._classify_thread = None
         self.device         = None
         self.reader         = None
         self.pl_detector    = None
         self.classifier     = None
         self.log            = None
+        self._plateau_q     = queue.Queue(maxsize = 200)
 
     def start(self, run_name=None):
         self._stop.clear()
-        self._thread = threading.Thread(
-            target  = self._run, 
-            args    = (run_name,), 
+        self._plateau_q = queue.Queue(maxsize = 200)
+
+        self._scan_thread = threading.Thread(
+            target  = self._scan_loop,
+            args    = (run_name,),
             daemon  = True
         )
-        self._thread.start()
+        self._classify_thread = threading.Thread(
+            target  = self._classify_loop,
+            daemon  = True
+        )
+        self._scan_thread.start()
+        self._classify_thread.start()
 
     def stop(self):
         self._stop.set()
-        if self._thread:
-            self._thread.join(timeout = 15)
+        if self._scan_thread:
+            self._scan_thread.join(timeout = 15)
+        try:
+            self._plateau_q.put_nowait(None)
+        except queue.Full:
+            pass
+        if self._classify_thread:
+            self._classify_thread.join(timeout = 15)
+
+    def join(self):
+        if self._scan_thread:
+            self._scan_thread.join()
+        if self._classify_thread:
+            self._classify_thread.join()
 
     def is_running(self):
-        return self._thread is not None and self._thread.is_alive()
+        scan_alive     = self._scan_thread is not None and self._scan_thread.is_alive()
+        classify_alive = self._classify_thread is not None and self._classify_thread.is_alive()
+        return scan_alive or classify_alive
 
     def _setup(self, run_name):
         cfg = self.cfg
@@ -138,45 +161,39 @@ class Detector:
         else:
             raise ValueError(f"Unknown classifier: {active!r}")
 
-    # ------------------------------------------------------------------
-    # Main loop
-    # ------------------------------------------------------------------
-
-    def _run(self, run_name):
+    def _scan_loop(self, run_name):
         try:
             self._setup(run_name)
             self.reader.start()
             self._emit("status", {"state": "running", "run_name": self.log.run_id})
 
             cfg = self.cfg
-            min_freq  = cfg["sdr"]["min_freq"]
-            max_freq  = cfg["sdr"]["max_freq"]
+            min_freq   = cfg["sdr"]["min_freq"]
+            max_freq   = cfg["sdr"]["max_freq"]
             max_sweeps = cfg.get("sweeps", 0)
 
             sweep = 0
             while not self._stop.is_set():
                 if max_sweeps > 0 and sweep >= max_sweeps:
                     break
-                self._sweep(sweep, min_freq, max_freq)
+                self._sweep_scan(sweep, min_freq, max_freq)
                 sweep += 1
 
         except Exception as e:
-            self._emit("error", {"error_type": "DETECTOR_ERROR", "message": str(e)})
+            self._emit("error", {"error_type": "SCAN_ERROR", "message": str(e)})
             raise
         finally:
+            self._plateau_q.put(None)
             if self.reader:
                 self.reader.stop()
             if self.device:
                 self.device.close()
-            self._emit("status", {"state": "stopped"})
 
-    def _sweep(self, sweep_num, min_freq, max_freq):
+    def _sweep_scan(self, sweep_num, min_freq, max_freq):
         cfg = self.cfg
 
         sample_rate       = cfg["sdr"]["sample_rate"]
         wide_sampling_num = cfg["scan"]["wide_sampling_num"]
-        freq_tolerance    = cfg["plateau"]["freq_tolerance"]
-        max_samples       = cfg["demod"]["max_samples_per_plateau"]
         required_ratio    = cfg["plateau"]["required_ratio"]
         required_hits     = int(wide_sampling_num * required_ratio)
 
@@ -238,7 +255,6 @@ class Detector:
                 current_freq += sample_rate
                 continue
 
-            plateau["samples"] = all_samples
             plateau_count += 1
 
             self.log.log_confirmed_plateau(plateau["center_freq"], plateau["bandwidth"], len(detections))
@@ -250,46 +266,69 @@ class Detector:
                 "sweep_num":    sweep_num
             })
 
-            self.pl_detector.update_map(state.plateau_map, plateau)
+            self._plateau_q.put({
+                "center_freq":  plateau["center_freq"],
+                "bandwidth":    plateau["bandwidth"],
+                "samples":      all_samples,
+                "sweep_num":    sweep_num
+            })
+
             if state.avg_power is not None:
                 state.avg_power_map[key] = state.avg_power.copy()
 
             current_freq += sample_rate
 
-        for key, samples_list in state.plateau_map.items():
-            if self._stop.is_set():
-                break
-
-            if len(samples_list) < max_samples:
-                continue
-
-            center_freq = key * freq_tolerance
-            result = self.classifier.classify(samples_list, sample_rate, center_freq)
-
-            if result["confirmed"]:
-                self.log.log_video_detection(center_freq, result["score"], len(samples_list))
-                self.log.log_event("VIDEO_CONFIRMED", f"{self.classifier.name} confirmed video", level = 2, freq = center_freq, score = result["score"])
-                self.log.log_video_samples(center_freq, samples_list)
-                self._emit("video_confirmed", {
-                    "freq":         center_freq,
-                    "classifier":   self.classifier.name,
-                    "score":        result["score"],
-                    "sweep_num":    sweep_num
-                })
-
-            elif (center_freq > 5_830_000_000 and center_freq < 5_860_000_000):
-                self.log.log_video_samples(center_freq, samples_list) 
-
-            else:
-                self.log.log_event("VIDEO_REJECTED", f"{self.classifier.name} rejected video", level = 2, freq = center_freq, score = result["score"])
-                self._emit("video_rejected", {
-                    "freq":         center_freq,
-                    "classifier":   self.classifier.name,
-                    "score":        result["score"],
-                    "sweep_num":    sweep_num
-                })
-
         self._emit("sweep_complete", { "sweep_num": sweep_num, "plateaus": plateau_count})
+
+    def _classify_loop(self):
+        cfg = self.cfg
+        sample_rate = cfg["sdr"]["sample_rate"]
+
+        try:
+            while True:
+                try:
+                    item = self._plateau_q.get(timeout = 1)
+                except queue.Empty:
+                    if self._stop.is_set():
+                        break
+                    continue
+
+                if item is None:
+                    break
+
+                center_freq  = item["center_freq"]
+                samples_list = item["samples"]
+                sweep_num    = item["sweep_num"]
+
+                result = self.classifier.classify(samples_list, sample_rate, center_freq)
+
+                if result["confirmed"]:
+                    self.log.log_video_detection(center_freq, result["score"], len(samples_list))
+                    self.log.log_event("VIDEO_CONFIRMED", f"{self.classifier.name} confirmed video", level = 2, freq = center_freq, score = result["score"])
+                    self.log.log_video_samples(center_freq, samples_list)
+                    self._emit("video_confirmed", {
+                        "freq":         center_freq,
+                        "classifier":   self.classifier.name,
+                        "score":        result["score"],
+                        "sweep_num":    sweep_num
+                    })
+
+                elif (center_freq > 5_830_000_000 and center_freq < 5_860_000_000):
+                    self.log.log_video_samples(center_freq, samples_list)
+
+                else:
+                    self.log.log_event("VIDEO_REJECTED", f"{self.classifier.name} rejected video", level = 2, freq = center_freq, score = result["score"])
+                    self._emit("video_rejected", {
+                        "freq":         center_freq,
+                        "classifier":   self.classifier.name,
+                        "score":        result["score"],
+                        "sweep_num":    sweep_num
+                    })
+
+        except Exception as e:
+            self._emit("error", {"error_type": "CLASSIFY_ERROR", "message": str(e)})
+        finally:
+            self._emit("status", {"state": "stopped"})
 
     def _emit(self, event_type, data):
         self.on_event(event_type, data)
