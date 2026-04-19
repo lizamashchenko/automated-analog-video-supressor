@@ -8,6 +8,9 @@ from detector import Detector
 # no tagged freq, can read old samples
 # test UI functionality
 # tune params
+# add verbosity 0 - none
+# double-check that all config values make sense and abide physics laws
+# final clean up and README update
 
 parser = argparse.ArgumentParser(description="Full-spectrum FPV drone detector")
 parser.add_argument("--classifier", choices=["harmonic", "cyclo", "autocorr"], help="Classifier to use (overrides config)")

@@ -42,7 +42,7 @@ class PlateauDetector:
             self.fft_size
         )
 
-        clusters = self._find_clusters(power)
+        clusters = self._find_clusters(power, center_freq)
         return self._extract_plateau(clusters, freqs)
 
     def validate(self, detections):
@@ -67,7 +67,7 @@ class PlateauDetector:
         plateau_map[key].extend(plateau["samples"])
         plateau_map[key] = plateau_map[key][-5:]
 
-    def _find_clusters(self, power):
+    def _find_clusters(self, power, center_freq):
         smoothed = np.convolve(power, np.ones(3)/3, mode='same')
         noise_floor = np.median(smoothed)
 
@@ -93,6 +93,7 @@ class PlateauDetector:
                 "plateau",
                 "CLUSTER_DEBUG",
                 "Cluster detection stats",
+                freq_mhz=round(center_freq / 1e6, 1),
                 noise=round(float(noise_floor), 2),
                 max_above_noise=round(max_above, 2),
                 thresh=self.above_noise_threshold,

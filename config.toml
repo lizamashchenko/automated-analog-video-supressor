@@ -3,7 +3,7 @@
 # ==========================
 [logging]
 base_dir  = "logs"  # all runs are stored as subdirectories here
-verbosity = 1       # 1=errors+detections  2=+decisions  3=+component debug files  4=+raw IQ samples
+verbosity = 1       # 0=video detections only  1=errors+detections  2=+decisions  3=+component debug files  4=+raw IQ samples
 
 # ==========================
 # SDR Device
@@ -63,11 +63,11 @@ wide_sampling_num = 10
 [plateau]
 required_ratio        = 0.3         # fraction of scans that must hit to confirm
 freq_tolerance        = 2_000_000   # Hz — bin width for dedup map
-above_noise_threshold = 0.3         # dB above noise floor to count as a peak
+above_noise_threshold = 0.5         # dB above noise floor to count as a peak
 edge_drop_level       = 0.1         # how far below peak to mark lobe edge
 min_lobe_size         = 0.2         # MHz — discard lobes narrower than this
-lobe_merge_gap        = 5.0         # MHz — merge lobes closer than this
-min_video_width       = 3.0         # MHz — minimum plateau width to keep
+lobe_merge_gap        = 3.0         # MHz — merge lobes closer than this
+min_video_width       = 2.7         # MHz — minimum plateau width to keep
 max_video_width       = 10.0        # MHz — maximum plateau width to keep
 
 # ==========================
@@ -102,7 +102,7 @@ harmonics              = [1, 2, 3, 4]  # 0 = near-DC, 1 = 1×f, 2 = 2×f, 3 = 3�
 [classifier.cyclo]
 ratio_threshold = 2.3 # 2.8 3.2 3.5 3.9
 score_threshold = 6
-required_votes  = 3
+required_votes  = 5
 target_freq     = 15625        # Hz — PAL/NTSC line rate
 harmonics       = [1, 2, 3, 4]
 min_harmonics   = 3            # how many harmonics must exceed ratio_threshold per buffer

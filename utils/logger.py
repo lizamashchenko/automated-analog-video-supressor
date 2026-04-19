@@ -21,7 +21,7 @@ class SDRLogger:
         self._samples_dir = None
 
     def log_event(self, event_type, message, level=1, **kwargs):
-        if level > self.verbosity:
+        if self.verbosity < 1 or level > self.verbosity:
             return
         
         timestamp = datetime.utcnow().isoformat()
@@ -35,6 +35,8 @@ class SDRLogger:
             f.write(line + "\n")
 
     def log_confirmed_plateau(self, freq, bw, hits):
+        if self.verbosity < 1:
+            return
         with open(self.confirmed_plateau_log, "a") as f:
             f.write(f"{datetime.utcnow().isoformat()},{freq:.3f},{bw:.3f},{hits}\n")
 
