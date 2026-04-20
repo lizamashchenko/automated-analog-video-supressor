@@ -22,7 +22,7 @@ FLUSH_BUFFERS = 3
 
 parser = argparse.ArgumentParser(description="Record a full-spectrum IQ sweep to disk")
 parser.add_argument("--base-dir", metavar="DIR",
-                    default="/home/liza/UCU/diploma/dataset/iq_recordings",
+                    default="/home/liza/UCU/diploma/dataset_original/iq_recordings",
                     help="Directory where sweep folders are created")
 args = parser.parse_args()
 

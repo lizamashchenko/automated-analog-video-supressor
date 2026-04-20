@@ -3,7 +3,7 @@
 # ==========================
 [logging]
 base_dir  = "logs"  # all runs are stored as subdirectories here
-verbosity = 1       # 0=video detections only  1=errors+detections  2=+decisions  3=+component debug files  4=+raw IQ samples
+verbosity = 1       # 1=errors+detections  2=+decisions  3=+component debug files  4=+raw IQ samples
 
 # ==========================
 # SDR Device

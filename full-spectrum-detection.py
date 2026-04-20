@@ -11,6 +11,7 @@ from detector import Detector
 # add verbosity 0 - none
 # double-check that all config values make sense and abide physics laws
 # final clean up and README update
+# add help function
 
 parser = argparse.ArgumentParser(description="Full-spectrum FPV drone detector")
 parser.add_argument("--classifier", choices=["harmonic", "cyclo", "autocorr"], help="Classifier to use (overrides config)")
@@ -18,7 +19,7 @@ parser.add_argument("--device", choices=["hackrf", "file"], help="Device type (o
 parser.add_argument("--file-path", metavar="PATH", help="IQ binary file path (required when --device=file)")
 parser.add_argument("--metadata-path", metavar="PATH", help="Metadata CSV path (required when --device=file)")
 parser.add_argument("--run-name", metavar="NAME", help="Name for this run's log folder (default: timestamp)")
-parser.add_argument("--verbosity", type=int, choices=[1, 2, 3, 4], metavar="1-4", help="Log detail level (overrides config)")
+parser.add_argument("--verbosity", type=int, choices=[0, 1, 2, 3, 4], metavar="0-4", help="Log detail level (overrides config)")
 parser.add_argument("--min-freq", type=float, metavar="HZ", help="Start frequency in Hz (overrides config)")
 parser.add_argument("--max-freq", type=float, metavar="HZ", help="End frequency in Hz (overrides config)")
 parser.add_argument("--sweeps", type=int, default=0, metavar="N", help="Number of full sweeps to run, 0 = run forever (default: 0)")

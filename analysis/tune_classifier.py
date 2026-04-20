@@ -108,6 +108,29 @@ def parse_autocorr_logs(log_dir):
     return groups
 
 
+def _parse_harmonic_dict(s):
+    """Parse the harmonics={...} field from harmonic debug log.
+
+    Format: {1: {'above_noise': 5.2, 'peak_to_valley': 3.1}, 2: None, ...}
+    Returns dict: {harmonic_idx: {'above_noise': float, 'peak_to_valley': float} | None}
+    """
+    result = {}
+    # Match each harmonic entry: N: {'above_noise': X, 'peak_to_valley': Y} or N: None
+    for m in re.finditer(
+        r"(\d+):\s*(?:None|\{'above_noise':\s*([-\d.]+),\s*'peak_to_valley':\s*([-\d.]+)\})",
+        s
+    ):
+        h = int(m.group(1))
+        if m.group(2) is None:
+            result[h] = None
+        else:
+            result[h] = {
+                "above_noise": float(m.group(2)),
+                "peak_to_valley": float(m.group(3)),
+            }
+    return result
+
+
 def parse_harmonic_logs(log_dir):
     """Return list of (freq_hz, [sample_dicts]) from harmonic_debug.log."""
     path = os.path.join(log_dir, "harmonic_debug.log")
@@ -125,32 +148,18 @@ def parse_harmonic_logs(log_dir):
         if "HARMONIC_SAMPLE" in line:
             m_freq = re.search(r"freq=([\d.]+)", line)
             m_spread = re.search(r"max_spread=([\d.]+)", line)
-            m_spread_ok = re.search(r"spread_ok=(True|False)", line)
-            m_noise = re.search(r"base_noise=([\d.e+-]+)", line)
-            # harmonics field is a dict — parse the whole key=val pairs
-            m_harmonics = re.search(r"harmonics=(\{[^}]+\})", line)
+            m_harmonics = re.search(r"harmonics=(\{.+\})\s*$", line)
             if not (m_freq and m_spread):
                 continue
             freq = float(m_freq.group(1))
             spread = float(m_spread.group(1))
-            spread_ok = m_spread_ok.group(1) == "True" if m_spread_ok else True
-            harmonics = {}
-            if m_harmonics:
-                # parse {1: {'peak_db': ..., 'hit': True}, ...}
-                # simplified — just count hits from the raw text
-                harmonics_str = m_harmonics.group(1)
-                hit_count = harmonics_str.count("'hit': True")
-                harmonics = {"hit_count": hit_count}
+            harmonics = _parse_harmonic_dict(m_harmonics.group(1)) if m_harmonics else {}
             if cur_freq is None or abs(freq - cur_freq) > 1e6:
                 if cur_freq is not None and cur_samples:
                     groups.append((cur_freq, cur_samples))
                 cur_freq = freq
                 cur_samples = []
-            cur_samples.append({
-                "spread": spread,
-                "spread_ok": spread_ok,
-                "harmonics": harmonics,
-            })
+            cur_samples.append({"spread": spread, "harmonics": harmonics})
         elif "HARMONIC_RESULT" in line:
             if cur_freq is not None and cur_samples:
                 groups.append((cur_freq, cur_samples))
@@ -199,13 +208,47 @@ def sim_autocorr(samples, params):
 
 
 def sim_harmonic(samples, params):
-    """Count votes (buffers where spread is OK and enough harmonics hit)."""
+    """Simulate harmonic classifier — returns confirmed_harmonics count.
+
+    The harmonic classifier doesn't use per-buffer voting. Instead it counts,
+    for each harmonic, the fraction of buffers where that harmonic was a hit.
+    A harmonic is "confirmed" if its hit ratio >= harmonic_ratio.
+    Detection occurs when confirmed_harmonics >= required_harmonics.
+
+    We return the count of confirmed harmonics so the caller can compare
+    against required_harmonics (mapped to required_votes in the grid).
+    """
+    threshold_db = params["threshold_db"]
+    valley_drop_db = params["valley_drop_db"]
     max_sp = params["max_harmonic_spread_db"]
-    votes = 0
+    harmonic_ratio = params["harmonic_ratio"]
+
+    total = len(samples)
+    if total == 0:
+        return 0
+
+    # Collect all harmonic indices across samples
+    all_harmonics = set()
     for s in samples:
-        if s["spread"] <= max_sp:
-            votes += 1
-    return votes
+        all_harmonics.update(s["harmonics"].keys())
+
+    hit_counts = {h: 0 for h in all_harmonics}
+
+    for s in samples:
+        if s["spread"] > max_sp:
+            continue
+        for h, data in s["harmonics"].items():
+            if data is None:
+                continue
+            if (data["above_noise"] > threshold_db
+                    and data["peak_to_valley"] > valley_drop_db):
+                hit_counts[h] += 1
+
+    confirmed = sum(
+        1 for count in hit_counts.values()
+        if count / total >= harmonic_ratio
+    )
+    return confirmed
 
 
 VOTE_SIMULATORS = {
@@ -231,8 +274,11 @@ PARAM_GRIDS = {
         "required_votes":      [2, 3, 4, 5],
     },
     "harmonic": {
+        "threshold_db":           [4, 5, 6, 8, 10],
+        "valley_drop_db":         [2, 3, 4, 5, 6],
         "max_harmonic_spread_db": [6, 8, 10, 12, 15],
-        "required_votes":         [2, 3, 4, 5],
+        "harmonic_ratio":         [0.3, 0.4, 0.5, 0.6],
+        "required_votes":         [2, 3, 4],
     },
 }
 
@@ -512,13 +558,20 @@ def main():
             break
 
     # ── Suggest best ──
+    # Map grid param names to config.toml names where they differ
+    toml_names = {
+        "harmonic": {"required_votes": "required_harmonics"},
+    }
+    name_map = toml_names.get(args.classifier, {})
+
     best = configs[0]
     print()
     print("=" * 60)
-    print("  Suggested config:")
+    print(f"  Suggested [classifier.{args.classifier}] config:")
     print("=" * 60)
     for p in param_names:
-        print(f"  {p:30s} = {best.params[p]}")
+        toml_key = name_map.get(p, p)
+        print(f"  {toml_key:30s} = {best.params[p]}")
     print(f"  -> TP={best.tp}  FN={best.fn}  FP={best.fp}")
     if best.fp_freqs:
         print(f"  -> FP at: {' '.join(best.fp_freqs)}")
