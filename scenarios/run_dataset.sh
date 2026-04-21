@@ -1,12 +1,66 @@
 #!/usr/bin/env bash
 set -e
 
-CLASSIFIER=${1:?Usage: $0 <classifier> <verbosity> [metadata_csv] [iq_root] [column] [sweeps]}
-VERBOSITY=${2:?Usage: $0 <classifier> <verbosity> [metadata_csv] [iq_root] [column] [sweeps]}
-METADATA_CSV=${3:-/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv}
-IQ_ROOT=${4:-/home/liza/UCU/diploma/dataset_original/iq_recordings}
-COLUMN=${5:-iq_folder}
-SWEEPS=${6:-1}
+# ── Usage ────────────────────────────────────────────────────────────────
+# ./scenarios/run_dataset.sh --classifier <name> --verbosity <N> [options]
+#
+# Runs a single classifier over the full dataset.
+# ─────────────────────────────────────────────────────────────────────────
+
+usage() {
+    cat <<EOF
+Usage: $0 --classifier <name> --verbosity <N> [options]
+
+Run a single classifier over every sample in the dataset.
+
+Required:
+  --classifier <name>       Classifier to run (harmonic | cyclo | autocorr)
+  --verbosity <0-4>         Log verbosity level
+
+Optional:
+  --metadata <PATH>         Metadata CSV (default: /home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv)
+  --iq-root <DIR>           IQ recordings root (default: /home/liza/UCU/diploma/dataset_original/iq_recordings)
+  --column <NAME>           Metadata column for folder names (default: iq_folder)
+  --sweeps <N>              Sweeps per sample (default: 1)
+  -h, --help                Show this help and exit
+
+Examples:
+  $0 --classifier cyclo --verbosity 3
+  $0 --classifier harmonic --verbosity 2 --sweeps 2
+EOF
+}
+
+CLASSIFIER=""
+VERBOSITY=""
+METADATA_CSV=/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv
+IQ_ROOT=/home/liza/UCU/diploma/dataset_original/iq_recordings
+COLUMN=iq_folder
+SWEEPS=1
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --classifier) CLASSIFIER="$2"; shift 2 ;;
+        --verbosity)  VERBOSITY="$2"; shift 2 ;;
+        --metadata)   METADATA_CSV="$2"; shift 2 ;;
+        --iq-root)    IQ_ROOT="$2"; shift 2 ;;
+        --column)     COLUMN="$2"; shift 2 ;;
+        --sweeps)     SWEEPS="$2"; shift 2 ;;
+        -h|--help)    usage; exit 0 ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            echo "" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+if [[ -z "${CLASSIFIER}" || -z "${VERBOSITY}" ]]; then
+    echo "Missing required --classifier and/or --verbosity" >&2
+    echo "" >&2
+    usage >&2
+    exit 2
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}/.."
@@ -64,7 +118,7 @@ for FOLDER in ${FOLDERS}; do
         continue
     fi
 
-    if ! python3 full-spectrum-detection.py \
+    if ! python3 full_spectrum_detection.py \
         --device file \
         --file-path "${IQ_BIN}" \
         --metadata-path "${META}" \
@@ -86,6 +140,6 @@ fi
 echo "================================================"
 
 python3 analysis/dataset_results.py \
-    "${RUN_PREFIX}" \
+    --run-prefix "${RUN_PREFIX}" \
     --metadata "${METADATA_CSV}" \
     --logs-base logs

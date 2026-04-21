@@ -1,20 +1,22 @@
 import numpy as np
-from .base import VideoClassifier 
+from .base import VideoClassifier
 
-class CycloClassifier (VideoClassifier):
+
+class CycloClassifier(VideoClassifier):
     def __init__(
         self,
         sample_rate,
         fft_size,
-        ratio_threshold = 2.5,
-        score_threshold = 6,
-        required_votes = 4,
-        target_freq = 15625,
-        harmonics = None,
-        min_harmonics = 2,
-        max_harmonic_spread_db = 15,
-        logger = None
+        ratio_threshold=2.5,
+        score_threshold=6,
+        required_votes=4,
+        target_freq=15625,
+        harmonics=None,
+        min_harmonics=2,
+        max_harmonic_spread_db=15,
+        logger=None
     ):
+        super().__init__("cyclo")
         self.sample_rate = sample_rate
         self.fft_size = fft_size
         self.ratio_threshold = ratio_threshold
@@ -25,12 +27,11 @@ class CycloClassifier (VideoClassifier):
         self.min_harmonics = min_harmonics
         self.max_harmonic_spread_db = max_harmonic_spread_db
         self.logger = logger
-        self.name = "cyclo"
 
     def classify(self, samples_list, sample_rate, center_freq):
         votes = 0
 
-        for i, samples in enumerate(samples_list):
+        for samples in samples_list:
             samples = samples[:self.fft_size]
 
             inst_freq = np.angle(samples[1:] * np.conj(samples[:-1]))
@@ -87,7 +88,6 @@ class CycloClassifier (VideoClassifier):
 
             if harmonics_above >= self.min_harmonics and max_spread <= self.max_harmonic_spread_db:
                 votes += 1
-                
 
         confirmed = votes >= self.required_votes
 

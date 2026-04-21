@@ -1,8 +1,24 @@
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
-FILE = "/home/liza/UCU/diploma/dataset/spectrum_recordings/rec-0001.csv"
+
+# usage: plot_signal.py [-h] --file PATH
+
+# Replay a HackRF sweep CSV with a sweep-index slider
+
+# options:
+#   -h, --help   show this help message and exit
+#   --file PATH  HackRF sweep CSV (hackrf_sweep output format)
+
+
+parser = argparse.ArgumentParser(description="Replay a HackRF sweep CSV with a sweep-index slider")
+parser.add_argument("--file", required=True, metavar="PATH",
+                    help="HackRF sweep CSV (hackrf_sweep output format)")
+args = parser.parse_args()
+
+FILE = args.file
 
 sweeps = []
 current_freqs = []

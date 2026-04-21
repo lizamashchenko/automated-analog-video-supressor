@@ -65,16 +65,15 @@ class SDRReader:
     def get_samples(self, timeout=0.5):
         try:
             samples = self.queue.get(timeout=timeout)
-
-            if samples is None or len(samples) < self.sample_size:
-                return None
-
-            samples = samples[-self.sample_size:]
-
-            if np.all(samples == 0):
-                return None
-
-            return samples
-
-        except:
+        except Exception:
             return None
+
+        if samples is None or len(samples) < self.sample_size:
+            return None
+
+        samples = samples[-self.sample_size:]
+
+        if np.all(samples == 0):
+            return None
+
+        return samples

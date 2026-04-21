@@ -1,30 +1,32 @@
 import numpy as np
 from scipy.signal import decimate
 
+from .base import VideoClassifier
 
-class AutocorrClassifier:
+
+class AutocorrClassifier(VideoClassifier):
     def __init__(
         self,
         sample_rate,
-        decimation = 1,
-        line_freq = 15625,
-        lag_tolerance = 0.1,        
-        peak_threshold = 0.55,
-        secondary_threshold = 0.2,
-        lag_strict = 1,
-        required_votes = 3,
-        logger = None
+        decimation=1,
+        line_freq=15625,
+        lag_tolerance=0.1,
+        peak_threshold=0.55,
+        secondary_threshold=0.2,
+        lag_strict=1,
+        required_votes=3,
+        logger=None
     ):
-        self.sample_rate         = sample_rate
-        self.decimation          = decimation
-        self.line_freq           = line_freq
-        self.lag_tolerance       = lag_tolerance
-        self.peak_threshold      = peak_threshold
+        super().__init__("autocorr")
+        self.sample_rate = sample_rate
+        self.decimation = decimation
+        self.line_freq = line_freq
+        self.lag_tolerance = lag_tolerance
+        self.peak_threshold = peak_threshold
         self.secondary_threshold = secondary_threshold
-        self.lag_strict          = lag_strict
-        self.required_votes      = required_votes
-        self.logger              = logger
-        self.name                = "AutocorrClassifier"
+        self.lag_strict = lag_strict
+        self.required_votes = required_votes
+        self.logger = logger
 
     def classify(self, samples_list, sample_rate, center_freq):
         votes = 0
@@ -91,14 +93,14 @@ class AutocorrClassifier:
 
         q = int(self.sample_rate // 1_000_000)
         if q > 1:
-            inst_freq = decimate(inst_freq, q, ftype = 'fir', zero_phase = True)
+            inst_freq = decimate(inst_freq, q, ftype='fir', zero_phase=True)
         fs_eff = self.sample_rate / q
 
         n = len(inst_freq)
         if n < 2:
             return None
 
-        corr = np.correlate(inst_freq, inst_freq, mode = 'full')
+        corr = np.correlate(inst_freq, inst_freq, mode='full')
         corr = corr[len(corr) // 2:]
 
         if corr[0] < 1e-12:

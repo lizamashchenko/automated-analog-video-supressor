@@ -4,12 +4,26 @@ import threading
 from utils.config import load as load_config
 from detector import Detector
 
-# TODO
-# no tagged freq, can read old samples
-# test UI functionality
-# tune params
-# final clean up and README update
-# add help function
+
+# usage: full_spectrum_detection.py [-h] [--classifier {harmonic,cyclo,autocorr}] [--device {hackrf,file}] [--file-path PATH]
+#                                   [--metadata-path PATH] [--run-name NAME] [--verbosity 0-4] [--min-freq HZ] [--max-freq HZ] [--sweeps N]
+
+# Full-spectrum FPV drone detector
+
+# options:
+#   -h, --help            show this help message and exit
+#   --classifier {harmonic,cyclo,autocorr}
+#                         Classifier to use (overrides config)
+#   --device {hackrf,file}
+#                         Device type (overrides config)
+#   --file-path PATH      IQ binary file path (required when --device=file)
+#   --metadata-path PATH  Metadata CSV path (required when --device=file)
+#   --run-name NAME       Name for this run's log folder (default: timestamp)
+#   --verbosity 0-4       Log detail level (overrides config)
+#   --min-freq HZ         Start frequency in Hz (overrides config)
+#   --max-freq HZ         End frequency in Hz (overrides config)
+#   --sweeps N            Number of full sweeps to run, 0 = run forever (default: 0)
+
 
 parser = argparse.ArgumentParser(description="Full-spectrum FPV drone detector")
 parser.add_argument("--classifier", choices=["harmonic", "cyclo", "autocorr"], help="Classifier to use (overrides config)")

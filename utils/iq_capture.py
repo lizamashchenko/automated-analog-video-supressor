@@ -7,6 +7,16 @@ import os
 from datetime import datetime
 from config import load as load_config
 
+
+# usage: iq_capture.py [-h] [--base-dir DIR]
+
+# Record a full-spectrum IQ sweep to disk
+
+# options:
+#   -h, --help      show this help message and exit
+#   --base-dir DIR  Directory where sweep folders are created
+
+
 cfg = load_config()
 
 MIN_FREQ          = cfg["sdr"]["min_freq"]

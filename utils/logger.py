@@ -23,14 +23,14 @@ class SDRLogger:
     def log_event(self, event_type, message, level=1, **kwargs):
         if self.verbosity < 1 or level > self.verbosity:
             return
-        
+
         timestamp = datetime.utcnow().isoformat()
         extra = ",".join(f"{k}={v}" for k, v in kwargs.items())
         line = f"{timestamp},{event_type},{message}"
-        
+
         if extra:
             line += "," + extra
-        
+
         with open(self.general_log, "a") as f:
             f.write(line + "\n")
 

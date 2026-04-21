@@ -21,12 +21,12 @@ The detection pipeline has three stages:
 ## Project structure
 
 ```
-full-spectrum-detection.py   # main entry point
+full_spectrum_detection.py   # main entry point
 config.toml                  # all tunable parameters
 
 rf_devices/
   hackrf_device.py           # live HackRF One via SoapySDR
-  file_devicie.py            # replay recorded sweeps from disk
+  file_device.py             # replay recorded sweeps from disk
 
 sdr_reader/
   reader_runner.py           # threaded IQ reader with queue
@@ -56,21 +56,21 @@ utils/
 
 ```bash
 # Run with config.toml defaults
-python full-spectrum-detection.py
+python full_spectrum_detection.py
 
 # Override classifier
-python full-spectrum-detection.py --classifier cyclo
+python full_spectrum_detection.py --classifier cyclo
 
 # Override device — replay a recorded sweep
-python full-spectrum-detection.py --device file \
+python full_spectrum_detection.py --device file \
     --file-path /path/to/sweep/iq.bin \
     --metadata-path /path/to/sweep/metadata.csv
 
 # Named log folder + higher verbosity
-python full-spectrum-detection.py --run-name wall_test --verbosity 3
+python full_spectrum_detection.py --run-name wall_test --verbosity 3
 
 # All overrides together
-python full-spectrum-detection.py \
+python full_spectrum_detection.py \
     --device file \
     --file-path /path/to/iq.bin \
     --metadata-path /path/to/metadata.csv \

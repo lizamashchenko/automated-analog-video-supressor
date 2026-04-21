@@ -89,7 +89,7 @@ def start():
     with _detector_lock:
         if _detector and _detector.is_running():
             return jsonify({"error": "Already running"}), 400
-     
+
         _detector = Detector(cfg, on_event = _broadcast)
         _detector.start(run_name = run_name)
 
@@ -114,10 +114,10 @@ def status():
 def serve_log_file(filepath):
     root = os.path.dirname(os.path.dirname(__file__))
     full_path = os.path.join(root, "logs", filepath)
-    
+
     if os.path.exists(full_path):
         return send_file(full_path)
-    
+
     return "Not found", 404
 
 if __name__ == "__main__":

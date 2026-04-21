@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtWidgets, QtCore
@@ -5,12 +6,38 @@ import threading
 import time
 import sys
 
-FILE = "/home/liza/UCU/diploma/dataset/iq_recordings/b14_1240_direct.iq"
 
-CENTER_FREQ = 5840e6
-SAMPLE_RATE = 20e6
-FFT_SIZE = 4096
-ALPHA = 0.2
+# usage: plot_iq.py [-h] --file PATH [--center-freq HZ] [--sample-rate HZ] [--fft-size N] [--alpha A]
+
+# Replay an IQ file as a live spectrum plot
+
+# options:
+#   -h, --help        show this help message and exit
+#   --file PATH       IQ binary file (interleaved int8 I/Q)
+#   --center-freq HZ  Center frequency in Hz (default: 5.84e9)
+#   --sample-rate HZ  Sample rate in Hz (default: 20e6)
+#   --fft-size N      FFT size (default: 4096)
+#   --alpha A         EMA smoothing factor for the spectrum (default: 0.2)
+
+
+parser = argparse.ArgumentParser(description="Replay an IQ file as a live spectrum plot")
+parser.add_argument("--file", required=True, metavar="PATH",
+                    help="IQ binary file (interleaved int8 I/Q)")
+parser.add_argument("--center-freq", type=float, default=5840e6, metavar="HZ",
+                    help="Center frequency in Hz (default: 5.84e9)")
+parser.add_argument("--sample-rate", type=float, default=20e6, metavar="HZ",
+                    help="Sample rate in Hz (default: 20e6)")
+parser.add_argument("--fft-size", type=int, default=4096, metavar="N",
+                    help="FFT size (default: 4096)")
+parser.add_argument("--alpha", type=float, default=0.2, metavar="A",
+                    help="EMA smoothing factor for the spectrum (default: 0.2)")
+args = parser.parse_args()
+
+FILE        = args.file
+CENTER_FREQ = args.center_freq
+SAMPLE_RATE = args.sample_rate
+FFT_SIZE    = args.fft_size
+ALPHA       = args.alpha
 
 avg_power = None
 latest_fft = None

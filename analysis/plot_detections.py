@@ -7,6 +7,23 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from scipy.signal import decimate
 
+
+# usage: plot_detections.py [-h] (--log-dir DIR | --run-name NAME) [--classifier {harmonic,cyclo,autocorr}] [--logs-base DIR]
+#                           [--sample-rate SAMPLE_RATE]
+
+# Plot demodulated baseband for saved IQ samples
+
+# options:
+#   -h, --help            show this help message and exit
+#   --log-dir DIR         Single log directory
+#   --run-name NAME       Run name prefix (processes all matching classifier dirs)
+#   --classifier {harmonic,cyclo,autocorr}
+#                         Only process this classifier (used with --run-name)
+#   --logs-base DIR       Base logs directory (default: logs)
+#   --sample-rate SAMPLE_RATE
+#                         IQ sample rate in Hz (default: 20000000)
+
+
 LINE_FREQ   = 15_734
 HARMONICS   = [1, 2, 3, 4]
 DECIM_RATE  = None

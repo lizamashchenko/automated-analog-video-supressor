@@ -4,8 +4,19 @@ import os
 import sys
 
 
+# usage: dataset_results.py [-h] --run-prefix PREFIX [--metadata PATH] [--logs-base DIR] [--output PATH] [--tolerance-mhz MHZ]
+
+# Build a per-sweep TP/FP/FN CSV from a dataset run
+
+# options:
+#   -h, --help           show this help message and exit
+#   --run-prefix PREFIX  Run prefix passed to run_dataset.sh (e.g. dataset_harmonic_20260416_120000)
+#   --metadata PATH      Metadata CSV path
+#   --logs-base DIR      Base logs directory (default: logs)
+#   --output PATH        Output CSV path (default: logs/<prefix>_results.csv)
+#   --tolerance-mhz MHZ  Frequency tolerance for matching detection to truth (default: 20 MHz)
+
 def parse_detections(log_path):
-    """Return list of (freq_mhz, score) from video_detections.log."""
     out = []
     if not os.path.exists(log_path):
         return out
@@ -24,10 +35,6 @@ def parse_detections(log_path):
 
 
 def classify(truth_mhz, detections, tolerance_mhz):
-    """Classify one sweep against ground truth.
-
-    Returns dict with tp (bool), fn (bool), fp_count (int), matched, spurious.
-    """
     matched  = []
     spurious = []
 
@@ -57,13 +64,16 @@ def main():
     parser = argparse.ArgumentParser(
         description="Build a per-sweep TP/FP/FN CSV from a dataset run"
     )
-    parser.add_argument("run_prefix",
+    parser.add_argument("--run-prefix", required=True, metavar="PREFIX",
                         help="Run prefix passed to run_dataset.sh (e.g. dataset_harmonic_20260416_120000)")
-    parser.add_argument("--metadata", default="/home/liza/UCU/diploma/dataset/iq_recording_meta.csv")
-    parser.add_argument("--logs-base", default="logs")
-    parser.add_argument("--output",    default=None,
+    parser.add_argument("--metadata", metavar="PATH",
+                        default="/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv",
+                        help="Metadata CSV path")
+    parser.add_argument("--logs-base", metavar="DIR", default="logs",
+                        help="Base logs directory (default: logs)")
+    parser.add_argument("--output", metavar="PATH", default=None,
                         help="Output CSV path (default: logs/<prefix>_results.csv)")
-    parser.add_argument("--tolerance-mhz", type=float, default=20.0,
+    parser.add_argument("--tolerance-mhz", type=float, default=20.0, metavar="MHZ",
                         help="Frequency tolerance for matching detection to truth (default: 20 MHz)")
     args = parser.parse_args()
 

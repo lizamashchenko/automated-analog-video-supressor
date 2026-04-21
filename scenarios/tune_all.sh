@@ -2,21 +2,55 @@
 set -e
 
 # ── Usage ────────────────────────────────────────────────────────────────
-# ./scenarios/tune_all.sh [metadata_csv] [iq_root] [exclude-freqs] [exclude-sweeps]
+# ./scenarios/tune_all.sh [options]
 #
 # Runs all 3 classifiers over the dataset with verbosity=3, then
 # calls tune_classifier.py on each to suggest better parameters.
-#
-# Examples:
-#   ./scenarios/tune_all.sh
-#   ./scenarios/tune_all.sh /path/to/meta.csv /path/to/iq_recordings
-#   ./scenarios/tune_all.sh "" "" "762" "drone_freq=1240,distance _m=1.5"
 # ─────────────────────────────────────────────────────────────────────────
 
-METADATA_CSV=${1:-/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv}
-IQ_ROOT=${2:-/home/liza/UCU/diploma/dataset_original/iq_recordings}
-EXCLUDE_FREQS=${3:-}
-EXCLUDE_SWEEPS=${4:-}
+usage() {
+    cat <<EOF
+Usage: $0 [options]
+
+Run every classifier over the dataset and grid-search for better thresholds.
+
+Optional:
+  --metadata <PATH>          Metadata CSV (default: /home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv)
+  --iq-root <DIR>            IQ recordings root (default: /home/liza/UCU/diploma/dataset_original/iq_recordings)
+  --exclude-freqs <SPEC>     Comma-separated MHz freqs/ranges to exclude from FP count
+                             (e.g. '762,1100-1300,2400-2500')
+  --exclude-sweeps <SPEC>    Exclude FPs from sweeps matching metadata conditions
+                             Format: 'key=val,key=val' (AND); groups separated by ';' (OR)
+                             (e.g. 'drone_freq=1240,distance _m=1.5')
+  -h, --help                 Show this help and exit
+
+Examples:
+  $0
+  $0 --metadata /path/meta.csv --iq-root /path/iq
+  $0 --exclude-freqs "762,2400-2500" --exclude-sweeps "drone_freq=1240,distance _m=1.5"
+EOF
+}
+
+METADATA_CSV=/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv
+IQ_ROOT=/home/liza/UCU/diploma/dataset_original/iq_recordings
+EXCLUDE_FREQS=""
+EXCLUDE_SWEEPS=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --metadata)        METADATA_CSV="$2"; shift 2 ;;
+        --iq-root)         IQ_ROOT="$2"; shift 2 ;;
+        --exclude-freqs)   EXCLUDE_FREQS="$2"; shift 2 ;;
+        --exclude-sweeps)  EXCLUDE_SWEEPS="$2"; shift 2 ;;
+        -h|--help)         usage; exit 0 ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            echo "" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
 
 VERBOSITY=3
 SWEEPS=1
@@ -99,7 +133,7 @@ for CLASSIFIER in "${CLASSIFIERS[@]}"; do
             continue
         fi
 
-        if ! python3 full-spectrum-detection.py \
+        if ! python3 full_spectrum_detection.py \
             --device file \
             --file-path "${IQ_BIN}" \
             --metadata-path "${META}" \
@@ -119,7 +153,7 @@ for CLASSIFIER in "${CLASSIFIERS[@]}"; do
 
     # Generate results CSV
     python3 analysis/dataset_results.py \
-        "${RUN_PREFIX}" \
+        --run-prefix "${RUN_PREFIX}" \
         --metadata "${METADATA_CSV}" \
         --logs-base logs
 done
@@ -141,8 +175,8 @@ for CLASSIFIER in "${CLASSIFIERS[@]}"; do
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     TUNE_ARGS=(
-        "${RUN_PREFIX}"
-        "${CLASSIFIER}"
+        --run-prefix "${RUN_PREFIX}"
+        --classifier "${CLASSIFIER}"
         --metadata "${METADATA_CSV}"
         --logs-base logs
         --top 10

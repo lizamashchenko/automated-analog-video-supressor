@@ -2,12 +2,24 @@ import argparse
 import os
 from collections import defaultdict
 
+
+# usage: run_summary.py [-h] (--run-name NAME | --log-dir DIR) [--logs-base DIR]
+
+# Summarise a detection run or compare classifier runs
+
+# options:
+#   -h, --help       show this help message and exit
+#   --run-name NAME  Run name prefix (finds <name>_harmonic, _cyclo, _autocorr dirs)
+#   --log-dir DIR    Single log directory to summarise
+#   --logs-base DIR  Base logs directory (default: logs)
+
+
 def parse_events(path):
     events = []
     if not os.path.exists(path):
         print("No events.log exists")
         return events
-    
+
     with open(path) as f:
         for line in f:
             line = line.strip()

@@ -85,7 +85,7 @@ class Detector:
                 vga_gain    = cfg["sdr"]["vga_gain"]
             )
         elif dev_cfg["type"] == "file":
-            from rf_devices.file_devicie import FileDevice
+            from rf_devices.file_device import FileDevice
             self.device = FileDevice(
                 filepath        = dev_cfg["file_path"],
                 metadata_path   = dev_cfg["metadata_path"],

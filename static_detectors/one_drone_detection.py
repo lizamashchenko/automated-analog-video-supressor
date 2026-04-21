@@ -275,7 +275,7 @@ def sdr_worker():
                 print("Possible video (not stable yet)")
             else:
                 print("Wideband signal but no video sync")
-                        
+
         else:
             print("No wideband signal detected")
 

@@ -59,4 +59,3 @@ while True:
 
     if ratio > THRESHOLD:
         print(">>> ANALOG VIDEO DETECTED <<<")
-    

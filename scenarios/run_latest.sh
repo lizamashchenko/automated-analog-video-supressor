@@ -2,22 +2,67 @@
 set -e
 
 # ── Usage ────────────────────────────────────────────────────────────────
-# ./scenarios/run_latest.sh <n_last> [verbosity] [metadata_csv] [iq_root] [column] [sweeps]
+# ./scenarios/run_latest.sh --n-last <N> [options]
 #
 # Runs all 3 classifiers on the last N samples from the metadata CSV.
 # Quick sanity check after adding new data to the dataset.
-#
-# Examples:
-#   ./scenarios/run_latest.sh 5
-#   ./scenarios/run_latest.sh 3 2
 # ─────────────────────────────────────────────────────────────────────────
 
-N_LAST=${1:?Usage: $0 <n_last> [verbosity] [metadata_csv] [iq_root] [column] [sweeps]}
-VERBOSITY=${2:-2}
-METADATA_CSV=${3:-/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv}
-IQ_ROOT=${4:-/home/liza/UCU/diploma/dataset_original/iq_recordings}
-COLUMN=${5:-iq_folder}
-SWEEPS=${6:-1}
+usage() {
+    cat <<EOF
+Usage: $0 --n-last <N> [options]
+
+Run all classifiers on the last N samples of a dataset.
+
+Required:
+  --n-last <N>              Number of most-recent samples to run
+
+Optional:
+  --verbosity <0-4>         Log verbosity level (default: 2)
+  --metadata <PATH>         Metadata CSV (default: /home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv)
+  --iq-root <DIR>           IQ recordings root (default: /home/liza/UCU/diploma/dataset_original/iq_recordings)
+  --column <NAME>           Metadata column for folder names (default: iq_folder)
+  --sweeps <N>              Sweeps per sample (default: 1)
+  -h, --help                Show this help and exit
+
+Examples:
+  $0 --n-last 5
+  $0 --n-last 3 --verbosity 2
+  $0 --n-last 10 --metadata /other/meta.csv --iq-root /other/iq
+EOF
+}
+
+N_LAST=""
+VERBOSITY=2
+METADATA_CSV=/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv
+IQ_ROOT=/home/liza/UCU/diploma/dataset_original/iq_recordings
+COLUMN=iq_folder
+SWEEPS=1
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --n-last)     N_LAST="$2"; shift 2 ;;
+        --verbosity)  VERBOSITY="$2"; shift 2 ;;
+        --metadata)   METADATA_CSV="$2"; shift 2 ;;
+        --iq-root)    IQ_ROOT="$2"; shift 2 ;;
+        --column)     COLUMN="$2"; shift 2 ;;
+        --sweeps)     SWEEPS="$2"; shift 2 ;;
+        -h|--help)    usage; exit 0 ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            echo "" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+if [[ -z "${N_LAST}" ]]; then
+    echo "Missing required --n-last" >&2
+    echo "" >&2
+    usage >&2
+    exit 2
+fi
 
 CLASSIFIERS=(cyclo autocorr harmonic)
 
@@ -88,7 +133,7 @@ for CLASSIFIER in "${CLASSIFIERS[@]}"; do
             continue
         fi
 
-        if ! python3 full-spectrum-detection.py \
+        if ! python3 full_spectrum_detection.py \
             --device file \
             --file-path "${IQ_BIN}" \
             --metadata-path "${META}" \
@@ -107,7 +152,7 @@ for CLASSIFIER in "${CLASSIFIERS[@]}"; do
     fi
 
     python3 analysis/dataset_results.py \
-        "${RUN_PREFIX}" \
+        --run-prefix "${RUN_PREFIX}" \
         --metadata "${METADATA_CSV}" \
         --logs-base logs
 done

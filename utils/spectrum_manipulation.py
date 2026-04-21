@@ -20,5 +20,4 @@ def compute_power_spectrum(samples, state):
     return state.avg_power
 
 def get_freq_key(freq):
-    return int(freq / SAMPLE_RATE) 
-
+    return int(freq / SAMPLE_RATE)
