@@ -225,6 +225,7 @@ class Detector:
             detections = []
             all_samples = []
             self.device.tune(current_freq)
+            self.reader.flush()
 
             for _ in range(wide_sampling_num):
                 if self._stop.is_set():

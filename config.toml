@@ -14,34 +14,12 @@ lna_gain    = 32
 vga_gain    = 32
 min_freq    = 100_000_000   # Hz
 max_freq    = 6_000_000_000 # Hz
-buffer_size = 262144
+buffer_size = 65536
 
 # "hackrf" uses the live HackRF One.
 # "file"   replays a recorded sweep — set file_path and metadata_path below.
 [device]
 type          = "file"
-
-# no drone
-# name                  - harmonic               - cyclo             - autocorr (0.18, 3v)  - autocorr (0.17, 3)
-# sweep_20260407_183603 - 1fp 2142               - good              - good                 - good
-# sweep_20260407_183747 - 1fp 2142               - good              - good                 - fp 2460
-# sweep_20260407_183646 - good                   - good              - good                 - good
-# sweep_20260407_183847 - good                   - good              - good                 - good
-# sweep_20260407_183944 - good                   - good              - good                 - good
-
-# drone on the table
-# sweep_20260407_184542 - p (bug on 700)         - p (bug on 700)    - 1fp, p (bug on 700)  - 2 fp, p (bug on 700)
-# sweep_20260407_184609 - p (bug on 700)         - p (bug on 700)    - p (bug on 700)       - p (bug on 700)
-# sweep_20260407_184635 - p (bug on 700)         - p (bug on 700)    - 1fp, p (bug on 700)  - 1 fp, p (bug on 700)
-# sweep_20260407_184702 - p (bug on 700)         - p (bug on 700)    - p (bug on 700)       - p (bug on 700)
-# sweep_20260407_184730 - 1fp, p (bug on 700)    - p (bug on 700)    - p (bug on 700)       - p (bug on 700) 
-
-# drone through the wall
-# sweep_20260407_193518 - good                   - good              - good                 - good
-# sweep_20260407_193545 - good                   - good              - good                 - good
-# sweep_20260407_193626 - 1fp 0p                 - 0s                - 0                    - good
-# sweep_20260407_193653 - no plateau, fp on 700  - no plateau, 0     - np 0                 - np 0s
-
 file_path     = "/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184702/iq.bin"
 metadata_path = "/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184702/metadata.csv"
 
@@ -119,5 +97,3 @@ peak_threshold      = 0.31    # 1st-harmonic peak (minus baseline) required to v
 secondary_threshold = 0.14     # 2nd-harmonic peak required to confirm periodicity
 lag_strict          = 1       # max |argmax − target_lag| in decimated samples
 required_votes      = 3
-
-# MAYBE REQ_VOTES TO 3 TO MATCH CYCLO AS WELL, ALSO LOWER THE RATE TO 0.16 AND SEE WHAT HAPPENS, AS IT SHOULD PICK UP THE WEAK SIGNAL MB

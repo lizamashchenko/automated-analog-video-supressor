@@ -8,8 +8,6 @@ from detector import Detector
 # no tagged freq, can read old samples
 # test UI functionality
 # tune params
-# add verbosity 0 - none
-# double-check that all config values make sense and abide physics laws
 # final clean up and README update
 # add help function
 

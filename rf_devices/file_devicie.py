@@ -1,5 +1,4 @@
 import numpy as np
-import time
 import csv
 from collections import defaultdict
 
@@ -12,8 +11,8 @@ class FileDevice:
         self.samples = np.memmap(filepath, dtype=np.complex64, mode='r')
         self.sample_rate = sample_rate
         self.loop = loop
-        self.chunks = defaultdict(list)
 
+        self.chunks = defaultdict(list)
         with open(metadata_path) as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -22,44 +21,32 @@ class FileDevice:
                 n = int(row["num_samples"])
                 self.chunks[freq].append((sample_off, n))
 
-        self.ptr = 0
-        self.loop = loop
-
-        self.start_time = time.time()
-        self.samples_served = 0
-
-    def _load_iq(self, filepath):
-        raw = np.fromfile(filepath, dtype=np.complex64)
-        iq = raw.reshape(-1, 2)
-        iq = iq[:, 0].astype(np.float32) + 1j * iq[:, 1].astype(np.float32)
-        iq /= 128.0
-
-        return iq.astype(np.complex64)
+        self.current_freq = None
+        self.chunk_idx = 0
 
     def tune(self, freq):
-        pass
+        self.current_freq = freq
+        self.chunk_idx = 0
 
     def close(self):
         pass
 
     def read(self, buff):
-        n = len(buff)
+        if self.current_freq is None or self.current_freq not in self.chunks:
+            return FakeResult(0)
 
-        expected_time = self.samples_served / self.sample_rate
-        real_time = time.time() - self.start_time
+        freq_chunks = self.chunks[self.current_freq]
 
-        if expected_time > real_time:
-            time.sleep(expected_time - real_time)
-
-        if self.ptr + n > len(self.samples):
+        if self.chunk_idx >= len(freq_chunks):
             if not self.loop:
                 return FakeResult(0)
-            self.ptr = 0
+            self.chunk_idx = 0
 
-        chunk = self.samples[self.ptr:self.ptr + n]
+        sample_off, n = freq_chunks[self.chunk_idx]
+        self.chunk_idx += 1
+
+        n = min(n, len(buff))
+        chunk = self.samples[sample_off:sample_off + n]
         buff[:len(chunk)] = chunk
-
-        self.ptr += n
-        self.samples_served += n
 
         return FakeResult(len(chunk))
