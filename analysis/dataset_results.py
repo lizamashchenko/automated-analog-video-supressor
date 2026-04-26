@@ -3,6 +3,8 @@ import csv
 import os
 import sys
 
+from utils.config import load as load_config
+
 
 # usage: dataset_results.py [-h] --run-prefix PREFIX [--metadata PATH] [--logs-base DIR] [--output PATH] [--tolerance-mhz MHZ]
 
@@ -67,8 +69,8 @@ def main():
     parser.add_argument("--run-prefix", required=True, metavar="PREFIX",
                         help="Run prefix passed to run_dataset.sh (e.g. dataset_harmonic_20260416_120000)")
     parser.add_argument("--metadata", metavar="PATH",
-                        default="/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv",
-                        help="Metadata CSV path")
+                        default=load_config()["dataset"]["metadata_csv"],
+                        help="Metadata CSV path (default: from config.toml [dataset])")
     parser.add_argument("--logs-base", metavar="DIR", default="logs",
                         help="Base logs directory (default: logs)")
     parser.add_argument("--output", metavar="PATH", default=None,

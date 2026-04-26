@@ -5,30 +5,6 @@ from utils.config import load as load_config
 from detector import Detector
 
 
-# usage: full_spectrum_detection.py [-h] [--classifier {harmonic,cyclo,autocorr}] [--device {hackrf,file}] [--file-path PATH]
-#                                   [--metadata-path PATH] [--run-name NAME] [--verbosity 0-4] [--min-freq HZ] [--max-freq HZ] [--sweeps N]
-
-# Full-spectrum FPV drone detector
-
-# options:
-#   -h, --help            show this help message and exit
-#   --classifier {harmonic,cyclo,autocorr}
-#                         Classifier to use (overrides config)
-#   --device {hackrf,file}
-#                         Device type (overrides config)
-#   --file-path PATH      IQ binary file path (required when --device=file)
-#   --metadata-path PATH  Metadata CSV path (required when --device=file)
-#   --run-name NAME       Name for this run's log folder (default: timestamp)
-#   --verbosity 0-4       Log detail level (overrides config)
-#   --min-freq HZ         Start frequency in Hz (overrides config)
-#   --max-freq HZ         End frequency in Hz (overrides config)
-#   --sweeps N            Number of full sweeps to run, 0 = run forever (default: 0)
-
-
-# TODO:
-# readme,
-# comments
-
 # Events shown at verbosity 0 (errors + final detections only).
 _QUIET_EVENTS = {"status", "error", "video_confirmed", "jammer_activated", "jammer_deactivated"}
 
@@ -63,6 +39,7 @@ if args.max_freq:
 
 cfg["sweeps"] = args.sweeps
 
+_verbosity = cfg["logging"]["verbosity"]
 _print_lock = threading.Lock()
 _on_progress = False
 
@@ -75,7 +52,7 @@ def _clear_progress():
 def _print_event(event_type, data):
     global _on_progress
 
-    if cfg["logging"]["verbosity"] == 0 and event_type not in _QUIET_EVENTS:
+    if _verbosity == 0 and event_type not in _QUIET_EVENTS:
         return
 
     with _print_lock:

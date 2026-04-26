@@ -2,9 +2,10 @@ import csv
 import glob
 import os
 import re
+from pathlib import Path
 
 
-LOGS_DIR     = "/home/liza/UCU/diploma/analog-video-supressor/logs"
+LOGS_DIR     = str(Path(__file__).resolve().parent.parent / "logs")
 CLASSIFIERS  = ("harmonic", "cyclo", "autocorr")
 RESULT_RE    = re.compile(r"^dataset_(?P<cls>\w+?)_(?P<ts>\d{8}_\d{6})_results\.csv$")
 

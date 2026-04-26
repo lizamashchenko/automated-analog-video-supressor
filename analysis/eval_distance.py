@@ -3,6 +3,7 @@ import argparse
 from analysis.eval_common import (
     CLASSIFIERS, find_results, load_rows, load_meta, is_positive, fmt_pct,
 )
+from utils.config import load as load_config
 
 
 # usage: eval_distance.py [-h] [--run TS] [--meta PATH]
@@ -12,7 +13,7 @@ from analysis.eval_common import (
 # AND obstacles = none.
 
 
-DEFAULT_META = "/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv"
+DEFAULT_META = load_config()["dataset"]["metadata_csv"]
 
 parser = argparse.ArgumentParser(description="Pd/Pfa vs distance, combined across classifiers (25 mW, no obstacles)")
 parser.add_argument("--run", metavar="TS", help="Run timestamp (default: latest)")

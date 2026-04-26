@@ -7,6 +7,8 @@ import re
 import sys
 from dataclasses import dataclass, field
 
+from utils.config import load as load_config
+
 
 # usage: tune_classifier.py [-h] --run-prefix PREFIX --classifier {cyclo,autocorr,harmonic} [--metadata PATH] [--logs-base DIR]
 #                           [--exclude-freqs SPEC] [--exclude-sweeps SPEC] [--top N] [--tolerance-mhz MHZ]
@@ -404,8 +406,8 @@ def main():
                         choices=["cyclo", "autocorr", "harmonic"],
                         help="Classifier to tune")
     parser.add_argument("--metadata", metavar="PATH",
-                        default="/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv",
-                        help="Metadata CSV path")
+                        default=load_config()["dataset"]["metadata_csv"],
+                        help="Metadata CSV path (default: from config.toml [dataset])")
     parser.add_argument("--logs-base", metavar="DIR", default="logs",
                         help="Base logs directory (default: logs)")
     parser.add_argument("--exclude-freqs", metavar="SPEC", default=None,

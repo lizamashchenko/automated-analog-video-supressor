@@ -16,12 +16,17 @@ min_freq    = 100_000_000   # Hz
 max_freq    = 6_000_000_000 # Hz
 buffer_size = 65536
 
+# Single source of truth for dataset locations (used by scenarios/ and analysis/).
+[dataset]
+metadata_csv = "/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv"
+iq_root      = "/home/liza/UCU/diploma/dataset_original/iq_recordings"
+
 # "hackrf" uses the live HackRF One.
 # "file"   replays a recorded sweep — set file_path and metadata_path below.
 [device]
 type          = "file"
-file_path     = "/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184702/iq.bin"
-metadata_path = "/home/liza/UCU/diploma/dataset/iq_recordings/sweep_20260407_184702/metadata.csv"
+file_path     = "/home/liza/UCU/diploma/dataset_original/iq_recordings/sweep_20260407_183603/iq.bin"
+metadata_path = "/home/liza/UCU/diploma/dataset_original/iq_recordings/sweep_20260407_183603/metadata.csv"
 
 # ==========================
 # Spectrum / FFT
@@ -102,14 +107,12 @@ required_votes      = 3
 # Jammer
 # ==========================
 # Drives the suppressor proof-of-concept board (Arduino Nano + 8 LEDs).
-# Firmware protocol: one byte = bitmask of channel states (bit 0 = ch1, bit 7 = ch8).
 [jammer]
-enabled       = false             # turn live jamming on/off
+enabled       = true             # turn live jamming on/off
 port          = "/dev/ttyUSB0"    # serial port for the driver board
 baud          = 9600
 modules       = 8                 # number of jammer channels (must match len(ranges))
 hold_seconds  = 60                # how long a channel stays active per detection
-# Per-module frequency ranges (Hz). Index N → channel N+1.
 ranges = [
     { min = 100_000_000, max = 900_000_000 },
     { min = 900_000_000, max = 1_600_000_000 },

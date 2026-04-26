@@ -6,6 +6,7 @@ import re
 from analysis.eval_common import (
     CLASSIFIERS, find_results, load_meta, fmt_pct,
 )
+from utils.config import load as load_config
 
 
 # usage: eval_plateau.py [-h] [--run TS] [--classifier {harmonic,cyclo,autocorr}]
@@ -21,7 +22,7 @@ from analysis.eval_common import (
 #                  (voting rejects candidates that had 1–2 hits but < required)
 
 
-DEFAULT_META   = "/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv"
+DEFAULT_META   = load_config()["dataset"]["metadata_csv"]
 DEFAULT_TOL_HZ = 5_000_000
 DEFAULT_STEPS  = 295
 

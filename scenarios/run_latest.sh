@@ -18,8 +18,8 @@ Required:
 
 Optional:
   --verbosity <0-4>         Log verbosity level (default: 2)
-  --metadata <PATH>         Metadata CSV (default: /home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv)
-  --iq-root <DIR>           IQ recordings root (default: /home/liza/UCU/diploma/dataset_original/iq_recordings)
+  --metadata <PATH>         Metadata CSV (default: from config.toml [dataset].metadata_csv)
+  --iq-root <DIR>           IQ recordings root (default: from config.toml [dataset].iq_root)
   --column <NAME>           Metadata column for folder names (default: iq_folder)
   --sweeps <N>              Sweeps per sample (default: 1)
   -h, --help                Show this help and exit
@@ -33,8 +33,8 @@ EOF
 
 N_LAST=""
 VERBOSITY=2
-METADATA_CSV=/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv
-IQ_ROOT=/home/liza/UCU/diploma/dataset_original/iq_recordings
+METADATA_CSV=""
+IQ_ROOT=""
 COLUMN=iq_folder
 SWEEPS=1
 
@@ -67,6 +67,9 @@ CLASSIFIERS=(cyclo autocorr harmonic)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}/.."
+
+: "${METADATA_CSV:=$(python3 -c "from utils.config import load; print(load()['dataset']['metadata_csv'])")}"
+: "${IQ_ROOT:=$(python3 -c "from utils.config import load; print(load()['dataset']['iq_root'])")}"
 
 if [[ ! -f "${METADATA_CSV}" ]]; then
     echo "metadata csv not found: ${METADATA_CSV}" >&2

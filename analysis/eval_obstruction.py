@@ -3,11 +3,12 @@ import argparse
 from analysis.eval_common import (
     CLASSIFIERS, find_results, load_rows, load_meta, is_positive, fmt_pct,
 )
+from utils.config import load as load_config
 
 # Pd / Pfa by obstruction category, combined over all three classifiers
 # usage: eval_obstruction.py [-h] [--run TS] [--meta PATH]
 
-DEFAULT_META = "/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv"
+DEFAULT_META = load_config()["dataset"]["metadata_csv"]
 
 OBS_CATEGORIES = [
     ("line of sight",        lambda obs, fd: obs == "none"),

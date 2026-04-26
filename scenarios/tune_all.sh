@@ -1,19 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-# Usage: ./scenarios/tune_all.sh [options]
-
 # Run every classifier over the dataset and grid-search for better thresholds.
-
-# Optional:
-#   --metadata <PATH>          Metadata CSV (default: /home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv)
-#   --iq-root <DIR>            IQ recordings root (default: /home/liza/UCU/diploma/dataset_original/iq_recordings)
-#   --exclude-freqs <SPEC>     Comma-separated MHz freqs/ranges to exclude from FP count
-#                              (e.g. '762,1100-1300,2400-2500')
-#   --exclude-sweeps <SPEC>    Exclude FPs from sweeps matching metadata conditions
-#                              Format: 'key=val,key=val' (AND); groups separated by ';' (OR)
-#                              (e.g. 'drone_freq=1240,distance _m=1.5')
-#   -h, --help                 Show this help and exit
+# See `usage()` below or pass --help.
 
 usage() {
     cat <<EOF
@@ -22,8 +11,8 @@ Usage: $0 [options]
 Run every classifier over the dataset and grid-search for better thresholds.
 
 Optional:
-  --metadata <PATH>          Metadata CSV (default: /home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv)
-  --iq-root <DIR>            IQ recordings root (default: /home/liza/UCU/diploma/dataset_original/iq_recordings)
+  --metadata <PATH>          Metadata CSV (default: from config.toml [dataset].metadata_csv)
+  --iq-root <DIR>            IQ recordings root (default: from config.toml [dataset].iq_root)
   --exclude-freqs <SPEC>     Comma-separated MHz freqs/ranges to exclude from FP count
                              (e.g. '762,1100-1300,2400-2500')
   --exclude-sweeps <SPEC>    Exclude FPs from sweeps matching metadata conditions
@@ -38,8 +27,8 @@ Examples:
 EOF
 }
 
-METADATA_CSV=/home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv
-IQ_ROOT=/home/liza/UCU/diploma/dataset_original/iq_recordings
+METADATA_CSV=""
+IQ_ROOT=""
 EXCLUDE_FREQS=""
 EXCLUDE_SWEEPS=""
 
@@ -66,6 +55,9 @@ CLASSIFIERS=(cyclo autocorr harmonic)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}/.."
+
+: "${METADATA_CSV:=$(python3 -c "from utils.config import load; print(load()['dataset']['metadata_csv'])")}"
+: "${IQ_ROOT:=$(python3 -c "from utils.config import load; print(load()['dataset']['iq_root'])")}"
 
 if [[ ! -f "${METADATA_CSV}" ]]; then
     echo "metadata csv not found: ${METADATA_CSV}" >&2

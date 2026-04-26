@@ -1,6 +1,6 @@
 # Analog Video Suppressor
 
-Detects analog FPV drone video transmitters by scanning the RF spectrum with a HackRF One and classifying wideband signals as PAL/NTSC analog video.
+Detects analog FPV drone video transmitters by scanning the RF spectrum with a HackRF One and classifying wideband signals as PAL/NTSC analog video. Optionally drives a multi-channel jammer when a transmitter is confirmed.
 
 ## How it works
 
@@ -16,12 +16,12 @@ The detection pipeline has three stages:
 | `cyclo` | Same harmonic structure but using a cyclostationary SNR ratio test |
 | `autocorr` | Autocorrelation peak at the lag corresponding to one video line period |
 
-**3. Decision** — if the classifier accumulates enough votes across the sample buffers it logs a confirmed analog video detection.
+**3. Decision** — if the classifier accumulates enough votes it logs a confirmed analog video detection and (if enabled) activates the jammer channel covering that frequency.
 
 ## Project structure
 
 ```
-full_spectrum_detection.py   # main entry point
+full_spectrum_detection.py   # CLI entry point
 config.toml                  # all tunable parameters
 
 rf_devices/
@@ -44,42 +44,93 @@ utils/
   logger.py                  # structured logging with verbosity levels
   spectrum_manipulation.py   # FFT / power spectrum helpers
   iq_capture.py              # standalone script to record a sweep to disk
+  jammer.py                  # serial driver for the suppressor board
+  plot_iq.py, plot_signal.py # offline visualization helpers
+
+web/
+  app.py                     # Flask server — live web UI
+  templates/, static/        # UI assets
+
+scenarios/                   # batch jobs over the dataset
+  run_dataset.sh             # one classifier × every recording
+  run_latest.sh              # all classifiers × N most-recent recordings
+  tune_all.sh                # run every classifier + grid-search thresholds
+
+analysis/                    # post-run metric and tuning tools
+  dataset_results.py         # build per-sweep TP/FP/FN CSV from a run
+  tune_classifier.py         # grid-search classifier thresholds
+  eval_plateau.py            # plateau-detector Pd/Pfa
+  eval_classifier_metrics.py # classifier Pd/Pfa
+  eval_distance.py           # Pd/Pfa vs transmitter distance
+  eval_obstruction.py        # Pd/Pfa by obstacle category
+  eval_timing.py             # detection-latency analysis
+  plot_detections.py, run_summary.py
+
+suppressor_driver_board/     # PlatformIO firmware for the Arduino Nano
+                             # that drives the 8 jammer modules
 ```
 
 ## Requirements
 
 - Python 3.12+
 - HackRF One + SoapySDR with the HackRF driver
-- `numpy`, `scipy`
+- `numpy`, `scipy`, `flask`, `pyserial`
 
-## Usage
+## Quickstart
 
 ```bash
-# Run with config.toml defaults
-python full_spectrum_detection.py
+# 1. point config.toml [dataset] at your local recordings (one-time)
+# 2. live detection from the HackRF
+python full_spectrum_detection.py --device hackrf
 
-# Override classifier
-python full_spectrum_detection.py --classifier cyclo
-
-# Override device — replay a recorded sweep
+# OR replay a recorded sweep
 python full_spectrum_detection.py --device file \
     --file-path /path/to/sweep/iq.bin \
     --metadata-path /path/to/sweep/metadata.csv
 
-# Named log folder + higher verbosity
-python full_spectrum_detection.py --run-name wall_test --verbosity 3
-
-# All overrides together
-python full_spectrum_detection.py \
-    --device file \
-    --file-path /path/to/iq.bin \
-    --metadata-path /path/to/metadata.csv \
-    --classifier harmonic \
-    --run-name my_experiment \
-    --verbosity 4
+# OR open the web UI
+python web/app.py --port 5000
 ```
 
-### CLI arguments
+## Configuration
+
+Everything tunable is in [`config.toml`](config.toml). CLI arguments and web-UI form fields override values there.
+
+Key sections:
+
+| Section | Controls |
+|---|---|
+| `[logging]` | Output directory, verbosity level (0–4) |
+| `[dataset]` | `metadata_csv` + `iq_root` — single source of truth for dataset paths used by `scenarios/` and `analysis/` |
+| `[sdr]` | Sample rate, gain, frequency range, buffer size |
+| `[device]` | Active device (`hackrf` / `file`) and replay paths |
+| `[fft]` | FFT size |
+| `[scan]` | Buffers per coarse-scan step |
+| `[plateau]` | Wideband lobe-detection thresholds |
+| `[demod]` | Min sample buffers required before classifying |
+| `[detection]` | Active classifier (`harmonic` / `cyclo` / `autocorr`) |
+| `[classifier.*]` | Per-classifier thresholds |
+| `[jammer]` | Serial port + per-channel frequency ranges for the suppressor board |
+
+## Live detection
+
+### CLI — `full_spectrum_detection.py`
+
+```bash
+# config defaults
+python full_spectrum_detection.py
+
+# pick a classifier
+python full_spectrum_detection.py --classifier cyclo
+
+# replay a recorded sweep
+python full_spectrum_detection.py --device file \
+    --file-path /path/to/sweep/iq.bin \
+    --metadata-path /path/to/sweep/metadata.csv
+
+# named log folder, debug verbosity, single sweep
+python full_spectrum_detection.py --run-name wall_test --verbosity 3 --sweeps 1
+```
 
 | Argument | Values | Description |
 |---|---|---|
@@ -88,40 +139,36 @@ python full_spectrum_detection.py \
 | `--file-path` | path | IQ binary file (required with `--device file`) |
 | `--metadata-path` | path | Metadata CSV (required with `--device file`) |
 | `--run-name` | string | Name for the log subfolder (default: timestamp) |
-| `--verbosity` | `1`–`4` | Log detail level (see below) |
+| `--verbosity` | `0`–`4` | Log detail level (see below) |
+| `--min-freq` / `--max-freq` | Hz | Override scan range from config |
+| `--sweeps` | int | How many full sweeps to run (`0` = forever, default) |
 
-Any argument not provided falls back to the value in `config.toml`.
+Anything not provided falls back to `config.toml`.
 
-## Configuration
+### Web UI — `web/app.py`
 
-All parameters live in `config.toml`. CLI arguments take priority over config values.
+```bash
+python web/app.py --port 5000
+# open http://127.0.0.1:5000
+```
 
-Key sections:
-
-| Section | Controls |
-|---|---|
-| `[logging]` | Output directory, verbosity level |
-| `[sdr]` | Sample rate, gain, frequency range, buffer size |
-| `[device]` | Device type and file paths for replay mode |
-| `[fft]` | FFT size |
-| `[scan]` | Number of samples per frequency step |
-| `[plateau]` | Detection thresholds for the wideband lobe finder |
-| `[demod]` | Minimum sample count required before classifying |
-| `[detection]` | Which classifier to use |
-| `[classifier.harmonic]` | Harmonic classifier thresholds |
-| `[classifier.cyclo]` | Cyclostationary classifier thresholds |
-| `[classifier.autocorr]` | Autocorrelation classifier thresholds |
+Features:
+- Configure device, classifier, frequency range, sweeps, verbosity, and run name from the sidebar
+- Live spectrum waterfall + per-window FFT
+- Confirmed-plateau and video-detection tables
+- **Detection alert**: every confirmed video transmission triggers a pulsing red banner + an audible two-tone beep — the warning you don't want to miss
 
 ## Logging
 
-Logs are written to `{base_dir}/{run_name}/`. The `base_dir` is set in `[logging]` in `config.toml`; `run_name` defaults to a UTC timestamp.
+Logs are written to `{base_dir}/{run_name}/`. `base_dir` is set in `[logging]`; `run_name` defaults to a UTC timestamp.
 
 ### Verbosity levels
 
 | Level | What gets logged |
 |---|---|
-| `1` | Errors (zero buffer, queue overflow, invalid bins) + `confirmed_plateau.log` + `video_detections.log` |
-| `2` | Level 1 + plateau confirmed/rejected and video confirmed/rejected decisions in `events.log` |
+| `0` | **stdout / UI**: only errors + confirmed video detections + jammer events. **No log files written.** Use for quiet long-running deployments. |
+| `1` | Errors + `confirmed_plateau.log` + `video_detections.log` |
+| `2` | Level 1 + plateau and video confirmed/rejected decisions in `events.log` |
 | `3` | Level 2 + per-component debug files: `plateau_debug.log`, `harmonic_debug.log`, `cyclo_debug.log`, `autocorr_debug.log` |
 | `4` | Level 3 + raw IQ samples saved as `.npy` files in `samples/` for every confirmed video hit |
 
@@ -141,9 +188,67 @@ logs/my_run/
 
 ## Recording a sweep
 
-`utils/iq_capture.py --base-dir <output_dir>` is a standalone script that records a full 100 MHz–6 GHz sweep to disk as a flat binary IQ file plus a CSV metadata file. The result can be replayed with `--device file`.
+`utils/iq_capture.py` records a full 100 MHz–6 GHz sweep to disk as a flat binary IQ file plus a CSV metadata file. The result can be replayed with `--device file` or added to the dataset.
 
 ```bash
-python utils/iq_capture.py --base-dir "home/iq_samples"
-# writes to home/iq_samples/sweep_<timestamp>/iq.bin + metadata.csv
+python utils/iq_capture.py                    # writes under config [dataset].iq_root
+python utils/iq_capture.py --base-dir /tmp/x  # custom output dir
+# → <base-dir>/sweep_<timestamp>/iq.bin + metadata.csv
 ```
+
+## Running the dataset (`scenarios/`)
+
+These shell scripts batch-run the detector across many recordings and feed the logs into `analysis/`. Dataset paths default to `config.toml [dataset]`; override per-run with `--metadata` / `--iq-root` if needed.
+
+```bash
+# one classifier across every recording in the dataset
+./scenarios/run_dataset.sh --classifier cyclo --verbosity 2
+
+# all three classifiers across the most-recent N recordings (post-capture sanity check)
+./scenarios/run_latest.sh --n-last 5
+
+# run all three classifiers + grid-search every threshold
+./scenarios/tune_all.sh
+./scenarios/tune_all.sh --exclude-freqs "762,2400-2500"  # skip known-bad bands when scoring FPs
+```
+
+Each scenario writes per-recording log folders under `logs/` with a shared run prefix, then automatically generates a `_results.csv`.
+
+## Analysis (`analysis/`)
+
+Each tool reads `_results.csv` files written by `dataset_results.py` (or runs from scratch). All defaults are sourced from `config.toml [dataset]` — pass `--meta` / `--metadata` to override.
+
+| Tool | What it reports |
+|---|---|
+| `dataset_results.py` | Per-sweep TP/FP/FN CSV (called automatically by `scenarios/`) |
+| `eval_classifier_metrics.py` | Per-classifier Pd / Pfa across the dataset |
+| `eval_plateau.py` | Plateau-detector Pd / Pfa / candidate-reduction / voting-rejection |
+| `eval_distance.py` | Pd / Pfa vs transmitter distance |
+| `eval_obstruction.py` | Pd / Pfa by obstacle category (line-of-sight, panel wall, brick walls, …) |
+| `eval_timing.py` | Detection latency |
+| `tune_classifier.py` | Grid-search classifier thresholds against a saved run |
+| `plot_detections.py`, `run_summary.py` | Quick visualizations |
+
+Example:
+
+```bash
+# Pd/Pfa for the most recent run
+python -m analysis.eval_classifier_metrics
+
+# Distance breakdown for a specific run timestamp
+python -m analysis.eval_distance --run 20260424_201338
+```
+
+## Jammer / suppressor driver board
+
+When `[jammer].enabled = true` in `config.toml`, every confirmed video detection activates the jammer channel whose frequency range covers that detection. Channels stay on for `hold_seconds` and re-arm if the same band is seen again. While a channel is active, the scanner skips the corresponding band to avoid feedback.
+
+| `[jammer]` field | Meaning |
+|---|---|
+| `enabled` | Master switch — when false the detector runs without driving the board |
+| `port`, `baud` | Serial connection to the Arduino driver |
+| `modules` | Number of jammer channels (must equal `len(ranges)`) |
+| `hold_seconds` | How long a channel stays on per detection |
+| `ranges` | Per-channel `{ min, max }` frequency bands in Hz |
+
+The firmware that listens on the serial port is in [`suppressor_driver_board/`](suppressor_driver_board/) — a PlatformIO project for an Arduino Nano driving 8 RF-power channels.

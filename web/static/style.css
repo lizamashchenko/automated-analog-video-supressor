@@ -370,6 +370,9 @@ tr.video-confirmed.new-row { animation: flash-detection 1.2s ease-out; }
 #detection-alert .alert-icon {
     font-size: 28px;
     line-height: 1;
+}
+
+#detection-alert.show .alert-icon {
     animation: alert-icon-blink 0.6s steps(2) infinite;
 }
 
@@ -394,7 +397,11 @@ tr.video-confirmed.new-row { animation: flash-detection 1.2s ease-out; }
     flex-wrap: wrap;
 }
 
-#detection-alert .sep { opacity: 0.55; }
+#detection-alert .alert-meta > span + span::before {
+    content: '·';
+    opacity: 0.55;
+    margin-right: 6px;
+}
 
 #alert-close {
     background: transparent;

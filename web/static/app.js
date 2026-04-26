@@ -210,11 +210,13 @@ function handleSweepStart(d) {
     logLine(`sweep ${d.sweep_num + 1} started — ${state.minFreq}–${state.maxFreq} MHz`);
 }
 
+const progressBar   = document.getElementById('progress-bar');
+const progressLabel = document.getElementById('progress-label');
+
 function handleFreqUpdate(d) {
     state.currentFreq = d.freq / 1e6;
-    document.getElementById('progress-bar').style.width = `${d.progress * 100}%`;
-    document.getElementById('progress-label').textContent =
-        `${state.currentFreq.toFixed(1)} MHz`;
+    progressBar.style.width = `${d.progress * 100}%`;
+    progressLabel.textContent = `${state.currentFreq.toFixed(1)} MHz`;
 }
 
 function handleSpectrum(d) {
@@ -224,28 +226,29 @@ function handleSpectrum(d) {
 }
 
 function handlePlateauConfirmed(d) {
-    const freqMHz = (d.freq / 1e6).toFixed(1);
+    const freqMHz = d.freq / 1e6;
     const bw      = d.bandwidth.toFixed(2);
     addRow(plateauTbody,
-        [freqMHz + ' MHz', bw + ' MHz', `${d.hits}`, `#${d.sweep_num + 1}`],
+        [freqMHz.toFixed(1) + ' MHz', bw + ' MHz', `${d.hits}`, `#${d.sweep_num + 1}`],
         'confirmed');
-    markPlateauOnSweep(parseFloat(freqMHz));
-    logLine(`plateau confirmed — ${freqMHz} MHz  bw=${bw} MHz  hits=${d.hits}`);
+    markPlateauOnSweep(freqMHz);
+    logLine(`plateau confirmed — ${freqMHz.toFixed(1)} MHz  bw=${bw} MHz  hits=${d.hits}`);
 }
 
 function handleVideoConfirmed(d) {
-    const freqMHz = (d.freq / 1e6).toFixed(1);
+    const freqMHz = d.freq / 1e6;
+    const score   = d.score.toFixed(2);
     addRow(detectionTbody,
-        ['✓', freqMHz + ' MHz', d.classifier, d.score.toFixed(2), `#${d.sweep_num + 1}`],
+        ['✓', freqMHz.toFixed(1) + ' MHz', d.classifier, score, `#${d.sweep_num + 1}`],
         'video-confirmed');
-    markVideoOnSweep(parseFloat(freqMHz), true);
-    logLine(`VIDEO CONFIRMED — ${freqMHz} MHz  ${d.classifier}  score=${d.score.toFixed(2)}`, 'info', true);
-    showDetectionAlert(freqMHz, d.classifier, d.score.toFixed(2));
+    markVideoOnSweep(freqMHz, true);
+    logLine(`VIDEO CONFIRMED — ${freqMHz.toFixed(1)} MHz  ${d.classifier}  score=${score}`, 'info', true);
+    showDetectionAlert(freqMHz.toFixed(1), d.classifier, score);
     playAlertTone();
 }
 
 function handleVideoRejected(d) {
-    markVideoOnSweep(parseFloat((d.freq / 1e6).toFixed(1)), false);
+    markVideoOnSweep(d.freq / 1e6, false);
 }
 
 function handleError(d) {
@@ -255,7 +258,7 @@ function handleError(d) {
 
 function handleSweepComplete(d) {
     logLine(`sweep ${d.sweep_num + 1} complete — ${d.plateaus} plateau(s)`, 'info');
-    document.getElementById('progress-bar').style.width = '100%';
+    progressBar.style.width = '100%';
 }
 
 let _audioCtx = null;
@@ -288,20 +291,24 @@ function playAlertTone() {
         gain.gain.linearRampToValueAtTime(0.18, t0 + t + 0.01);
         gain.gain.linearRampToValueAtTime(0,    t0 + t + 0.16);
         osc.connect(gain).connect(ctx.destination);
+        osc.onended = () => { osc.disconnect(); gain.disconnect(); };
         osc.start(t0 + t);
         osc.stop(t0 + t + 0.18);
     });
 }
 
 const detectionAlert = document.getElementById('detection-alert');
+const alertFreqEl    = document.getElementById('alert-freq');
+const alertClassEl   = document.getElementById('alert-class');
+const alertScoreEl   = document.getElementById('alert-score');
 let _alertTimer = null;
 
 function showDetectionAlert(freqMHz, classifier, score) {
-    document.getElementById('alert-freq').textContent  = `${freqMHz} MHz`;
-    document.getElementById('alert-class').textContent = classifier;
-    document.getElementById('alert-score').textContent = score;
+    alertFreqEl.textContent  = `${freqMHz} MHz`;
+    alertClassEl.textContent = classifier;
+    alertScoreEl.textContent = score;
     detectionAlert.classList.remove('show');
-    void detectionAlert.offsetWidth;
+    void detectionAlert.offsetWidth;  // force reflow so the pulse animation restarts on rapid hits
     detectionAlert.classList.add('show');
     clearTimeout(_alertTimer);
     _alertTimer = setTimeout(() => detectionAlert.classList.remove('show'), 5000);

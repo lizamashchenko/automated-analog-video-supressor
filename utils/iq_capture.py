@@ -4,16 +4,11 @@ from SoapySDR import *
 import numpy as np
 import time
 import os
+import sys
 from datetime import datetime
-from config import load as load_config
 
-# usage: iq_capture.py [-h] [--base-dir DIR]
-
-# Record a full-spectrum IQ sweep to disk
-
-# options:
-#   -h, --help      show this help message and exit
-#   --base-dir DIR  Directory where sweep folders are created
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.config import load as load_config
 
 
 cfg = load_config()
@@ -31,8 +26,8 @@ FLUSH_BUFFERS = 3
 
 parser = argparse.ArgumentParser(description="Record a full-spectrum IQ sweep to disk")
 parser.add_argument("--base-dir", metavar="DIR",
-                    default="/home/liza/UCU/diploma/dataset_original/iq_recordings",
-                    help="Directory where sweep folders are created")
+                    default=cfg["dataset"]["iq_root"],
+                    help="Directory where sweep folders are created (default: from config.toml [dataset])")
 args = parser.parse_args()
 
 timestamp_run = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
