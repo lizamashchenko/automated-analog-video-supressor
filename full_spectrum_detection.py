@@ -25,6 +25,13 @@ from detector import Detector
 #   --sweeps N            Number of full sweeps to run, 0 = run forever (default: 0)
 
 
+# TODO:
+# readme,
+# comments
+
+# Events shown at verbosity 0 (errors + final detections only).
+_QUIET_EVENTS = {"status", "error", "video_confirmed", "jammer_activated", "jammer_deactivated"}
+
 parser = argparse.ArgumentParser(description="Full-spectrum FPV drone detector")
 parser.add_argument("--classifier", choices=["harmonic", "cyclo", "autocorr"], help="Classifier to use (overrides config)")
 parser.add_argument("--device", choices=["hackrf", "file"], help="Device type (overrides config)")
@@ -47,7 +54,7 @@ if args.metadata_path:
     cfg["device"]["metadata_path"] = args.metadata_path
 if args.classifier:
     cfg["detection"]["active_classifier"] = args.classifier
-if args.verbosity:
+if args.verbosity is not None:
     cfg["logging"]["verbosity"] = args.verbosity
 if args.min_freq:
     cfg["sdr"]["min_freq"] = args.min_freq
@@ -67,6 +74,9 @@ def _clear_progress():
 
 def _print_event(event_type, data):
     global _on_progress
+
+    if cfg["logging"]["verbosity"] == 0 and event_type not in _QUIET_EVENTS:
+        return
 
     with _print_lock:
         if event_type == "freq_update":
@@ -96,6 +106,14 @@ def _print_event(event_type, data):
         elif event_type == "video_rejected":
             print(f"  [rejected]  {data['freq'] / 1e6:.1f} MHz  "
                   f"{data['classifier']}  score={data['score']:.2f}")
+        elif event_type == "jammer_activated":
+            print(f"  [JAM ON]    {data['freq'] / 1e6:.1f} MHz  "
+                  f"ch={data['channel']}  hold={data['hold_s']}s")
+        elif event_type == "jammer_deactivated":
+            print(f"  [JAM OFF]   ch={data['channel']}")
+        elif event_type == "freq_skipped":
+            print(f"  [skipped]   {data['freq'] / 1e6:.1f} MHz  "
+                  f"jammed band {data['band_lo']/1e6:.1f}–{data['band_hi']/1e6:.1f} MHz")
         elif event_type == "sweep_complete":
             print(f"\nSweep {data['sweep_num'] + 1} done  plateaus={data['plateaus']}")
             print("-" * 60)

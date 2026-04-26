@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 set -e
 
-# ── Usage ────────────────────────────────────────────────────────────────
-# ./scenarios/tune_all.sh [options]
-#
-# Runs all 3 classifiers over the dataset with verbosity=3, then
-# calls tune_classifier.py on each to suggest better parameters.
-# ─────────────────────────────────────────────────────────────────────────
+# Usage: ./scenarios/tune_all.sh [options]
+
+# Run every classifier over the dataset and grid-search for better thresholds.
+
+# Optional:
+#   --metadata <PATH>          Metadata CSV (default: /home/liza/UCU/diploma/dataset_original/iq_recording_meta.csv)
+#   --iq-root <DIR>            IQ recordings root (default: /home/liza/UCU/diploma/dataset_original/iq_recordings)
+#   --exclude-freqs <SPEC>     Comma-separated MHz freqs/ranges to exclude from FP count
+#                              (e.g. '762,1100-1300,2400-2500')
+#   --exclude-sweeps <SPEC>    Exclude FPs from sweeps matching metadata conditions
+#                              Format: 'key=val,key=val' (AND); groups separated by ';' (OR)
+#                              (e.g. 'drone_freq=1240,distance _m=1.5')
+#   -h, --help                 Show this help and exit
 
 usage() {
     cat <<EOF
@@ -52,7 +59,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-VERBOSITY=3
+VERBOSITY=4
 SWEEPS=1
 COLUMN=iq_folder
 CLASSIFIERS=(cyclo autocorr harmonic)
@@ -65,7 +72,7 @@ if [[ ! -f "${METADATA_CSV}" ]]; then
     exit 1
 fi
 
-# ── Resolve folders from metadata CSV ────────────────────────────────────
+# extract folders from metadata CSV
 
 COL_IDX=$(head -n 1 "${METADATA_CSV}" | awk -F, -v col="${COLUMN}" '{
     for (i = 1; i <= NF; i++) {
@@ -103,7 +110,7 @@ fi
 echo "================================================"
 echo ""
 
-# ── Run each classifier ─────────────────────────────────────────────────
+# run each classifier
 
 declare -A RUN_PREFIXES
 
@@ -151,14 +158,14 @@ for CLASSIFIER in "${CLASSIFIERS[@]}"; do
         for f in "${FAILED[@]}"; do echo "    - ${f}"; done
     fi
 
-    # Generate results CSV
+    # Generate results
     python3 analysis/dataset_results.py \
         --run-prefix "${RUN_PREFIX}" \
         --metadata "${METADATA_CSV}" \
         --logs-base logs
 done
 
-# ── Tune each classifier ────────────────────────────────────────────────
+# run tuning for each classifier
 
 echo ""
 echo ""

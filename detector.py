@@ -25,6 +25,7 @@ class Detector:
         self.reader         = None
         self.pl_detector    = None
         self.classifier     = None
+        self.jammer         = None
         self.log            = None
         self._plateau_q     = queue.Queue(maxsize = 200)
 
@@ -161,6 +162,29 @@ class Detector:
         else:
             raise ValueError(f"Unknown classifier: {active!r}")
 
+        j_cfg = cfg.get("jammer", {})
+        if j_cfg.get("enabled"):
+            from utils.jammer import Jammer
+            ranges = [(r["min"], r["max"]) for r in j_cfg["ranges"]]
+            modules = j_cfg.get("modules", len(ranges))
+            if len(ranges) != modules:
+                raise ValueError(
+                    f"jammer.modules ({modules}) != len(ranges) ({len(ranges)})"
+                )
+            self.jammer = Jammer(
+                port         = j_cfg["port"],
+                baud         = j_cfg.get("baud", 9600),
+                ranges       = ranges,
+                hold_seconds = j_cfg.get("hold_seconds", 60),
+                logger       = self.log,
+                on_event     = self._emit,
+            )
+            try:
+                self.jammer.open()
+            except Exception as e:
+                self._emit("error", {"error_type": "JAMMER_OPEN", "message": str(e)})
+                self.jammer = None
+
     def _scan_loop(self, run_name):
         try:
             self._setup(run_name)
@@ -188,6 +212,8 @@ class Detector:
                 self.reader.stop()
             if self.device:
                 self.device.close()
+            if self.jammer:
+                self.jammer.close()
 
     def _sweep_scan(self, sweep_num, min_freq, max_freq):
         cfg = self.cfg
@@ -208,7 +234,28 @@ class Detector:
             "max_freq": max_freq
         })
 
+        sr_half = sample_rate / 2
+
         while current_freq < max_freq and not self._stop.is_set():
+            if self.jammer:
+                overlap = self.jammer.jammed_overlap(
+                    current_freq - sr_half, current_freq + sr_half
+                )
+                if overlap:
+                    self.log.log_event(
+                        "FREQ_SKIPPED_JAMMED",
+                        "Skipping frequency inside active jammer band",
+                        level = 2, freq = current_freq,
+                        band_lo = overlap[0], band_hi = overlap[1],
+                    )
+                    self._emit("freq_skipped", {
+                        "freq": current_freq,
+                        "band_lo": overlap[0],
+                        "band_hi": overlap[1],
+                    })
+                    current_freq += sample_rate
+                    continue
+
             key = get_freq_key(current_freq)
             progress = (current_freq - min_freq) / freq_range
 
@@ -314,9 +361,26 @@ class Detector:
                         "sweep_num":    sweep_num
                     })
 
-                elif (center_freq > 5_830_000_000 and center_freq < 5_860_000_000):
-                    self.log.log_video_samples(center_freq, samples_list)
-
+                    if self.jammer:
+                        ch = self.jammer.activate(center_freq)
+                        if ch is not None:
+                            self.log.log_event(
+                                "JAMMER_ACTIVATED",
+                                "Jammer channel activated",
+                                level = 1, freq = center_freq, channel = ch,
+                                hold_s = self.jammer.hold_seconds,
+                            )
+                            self._emit("jammer_activated", {
+                                "freq":     center_freq,
+                                "channel":  ch,
+                                "hold_s":   self.jammer.hold_seconds,
+                            })
+                        else:
+                            self.log.log_event(
+                                "JAMMER_NO_CHANNEL",
+                                "Detected freq is outside all jammer module ranges",
+                                level = 1, freq = center_freq,
+                            )
                 else:
                     self.log.log_event("VIDEO_REJECTED", f"{self.classifier.name} rejected video", level = 2, freq = center_freq, score = result["score"])
                     self._emit("video_rejected", {

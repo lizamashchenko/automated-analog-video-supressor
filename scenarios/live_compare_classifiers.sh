@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-# ── Usage ────────────────────────────────────────────────────────────────
+# usage:
 # ./scenarios/live_compare_classifiers.sh --min-mhz <F> --max-mhz <F> --sweeps <N> [options]
 #
 # Runs all 3 classifiers against live HackRF input over a frequency window
 # and then runs summary + plot analysis.
-# ─────────────────────────────────────────────────────────────────────────
 
 usage() {
     cat <<EOF

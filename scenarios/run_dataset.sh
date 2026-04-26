@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
-# ── Usage ────────────────────────────────────────────────────────────────
+# usage:
 # ./scenarios/run_dataset.sh --classifier <name> --verbosity <N> [options]
 #
 # Runs a single classifier over the full dataset.
-# ─────────────────────────────────────────────────────────────────────────
 
 usage() {
     cat <<EOF

@@ -2,6 +2,7 @@ import threading
 from queue import Queue, Full
 import numpy as np
 
+# reader thread, getting samples from a device, and updating queue
 class SDRReader:
     def __init__(self, device, buffer_size, queue_size=100, sample_size=4096, logger=None):
         self.device = device
@@ -29,6 +30,8 @@ class SDRReader:
                 self.queue.get_nowait()
             except Exception:
                 break
+
+# ==================== INNER FUNCTIONS ====================
 
     def _run(self):
         buff = np.empty(self.buffer_size, np.complex64)

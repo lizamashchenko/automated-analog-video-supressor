@@ -1,3 +1,0 @@
-1. one classifier live + analysis. parameters: min, max, verb, classifier, sweeps
-2. run all sweep folders from the dataset metadata 
-3. parameter tuning from the logs

@@ -7,7 +7,6 @@ import os
 from datetime import datetime
 from config import load as load_config
 
-
 # usage: iq_capture.py [-h] [--base-dir DIR]
 
 # Record a full-spectrum IQ sweep to disk

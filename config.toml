@@ -3,7 +3,7 @@
 # ==========================
 [logging]
 base_dir  = "logs"  # all runs are stored as subdirectories here
-verbosity = 1       # 1=errors+detections  2=+decisions  3=+component debug files  4=+raw IQ samples
+verbosity = 1       # 0=errors+detections only (no log files)  1=+log files  2=+decisions  3=+component debug files  4=+raw IQ samples
 
 # ==========================
 # SDR Device
@@ -97,3 +97,26 @@ peak_threshold      = 0.31    # 1st-harmonic peak (minus baseline) required to v
 secondary_threshold = 0.14     # 2nd-harmonic peak required to confirm periodicity
 lag_strict          = 1       # max |argmax − target_lag| in decimated samples
 required_votes      = 3
+
+# ==========================
+# Jammer
+# ==========================
+# Drives the suppressor proof-of-concept board (Arduino Nano + 8 LEDs).
+# Firmware protocol: one byte = bitmask of channel states (bit 0 = ch1, bit 7 = ch8).
+[jammer]
+enabled       = false             # turn live jamming on/off
+port          = "/dev/ttyUSB0"    # serial port for the driver board
+baud          = 9600
+modules       = 8                 # number of jammer channels (must match len(ranges))
+hold_seconds  = 60                # how long a channel stays active per detection
+# Per-module frequency ranges (Hz). Index N → channel N+1.
+ranges = [
+    { min = 100_000_000, max = 900_000_000 },
+    { min = 900_000_000, max = 1_600_000_000 },
+    { min = 1_600_000_000, max = 2_400_000_000 },
+    { min = 2_400_000_000, max = 3_200_000_000 },
+    { min = 3_200_000_000, max = 4_000_000_000 },
+    { min = 4_000_000_000, max = 4_800_000_000 },
+    { min = 4_800_000_000, max = 5_600_000_000 },
+    { min = 5_600_000_000, max = 6_000_000_000 },
+]

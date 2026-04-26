@@ -5,6 +5,7 @@ const state = {
     maxFreq: 6000,
     currentFreq: null,
     sweepPower: {},
+    verbosity: 1,
 };
 
 const sweepCanvas  = document.getElementById('canvas-sweep');
@@ -162,7 +163,9 @@ function addRow(tbody, cells, cssClass) {
 const eventLog = document.getElementById('event-log');
 const MAX_LOG  = 300;
 
-function logLine(text, cls) {
+function logLine(text, cls, essential) {
+    if (state.verbosity === 0 && !essential) return;
+
     const div = document.createElement('div');
     div.className = 'log-line ' + (cls || 'info');
     const ts = new Date().toTimeString().slice(0, 8);
@@ -188,7 +191,7 @@ function handleStatus(d) {
     document.getElementById('btn-stop').disabled  = !state.running;
 
     logLine(`detector ${d.state}${d.run_name ? ' — ' + d.run_name : ''}`,
-            d.state === 'running' ? 'info' : 'warning');
+            d.state === 'running' ? 'info' : 'warning', true);
 }
 
 function handleSweepStart(d) {
@@ -236,26 +239,78 @@ function handleVideoConfirmed(d) {
         ['✓', freqMHz + ' MHz', d.classifier, d.score.toFixed(2), `#${d.sweep_num + 1}`],
         'video-confirmed');
     markVideoOnSweep(parseFloat(freqMHz), true);
-    logLine(`VIDEO CONFIRMED — ${freqMHz} MHz  ${d.classifier}  score=${d.score.toFixed(2)}`, 'info');
+    logLine(`VIDEO CONFIRMED — ${freqMHz} MHz  ${d.classifier}  score=${d.score.toFixed(2)}`, 'info', true);
+    showDetectionAlert(freqMHz, d.classifier, d.score.toFixed(2));
+    playAlertTone();
 }
 
 function handleVideoRejected(d) {
-    const freqMHz = (d.freq / 1e6).toFixed(1);
-    addRow(detectionTbody,
-        ['✗', freqMHz + ' MHz', d.classifier, d.score.toFixed(2), `#${d.sweep_num + 1}`],
-        'video-rejected');
-    markVideoOnSweep(parseFloat(freqMHz), false);
+    markVideoOnSweep(parseFloat((d.freq / 1e6).toFixed(1)), false);
 }
 
 function handleError(d) {
     const freq = d.freq ? ` @ ${(d.freq / 1e6).toFixed(1)} MHz` : '';
-    logLine(`${d.error_type}: ${d.message}${freq}`, 'error');
+    logLine(`${d.error_type}: ${d.message}${freq}`, 'error', true);
 }
 
 function handleSweepComplete(d) {
     logLine(`sweep ${d.sweep_num + 1} complete — ${d.plateaus} plateau(s)`, 'info');
     document.getElementById('progress-bar').style.width = '100%';
 }
+
+let _audioCtx = null;
+function ensureAudio() {
+    if (!_audioCtx) {
+        const Ctor = window.AudioContext || window['webkitAudioContext'];
+        if (!Ctor) return null;
+        try { _audioCtx = new Ctor(); } catch (e) { return null; }
+    }
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    return _audioCtx;
+}
+
+function playAlertTone() {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const tones = [
+        { f: 1000, t: 0.00 },
+        { f: 1500, t: 0.18 },
+        { f: 1000, t: 0.42 },
+        { f: 1500, t: 0.60 },
+    ];
+    const t0 = ctx.currentTime;
+    tones.forEach(({ f, t }) => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = f;
+        gain.gain.setValueAtTime(0, t0 + t);
+        gain.gain.linearRampToValueAtTime(0.18, t0 + t + 0.01);
+        gain.gain.linearRampToValueAtTime(0,    t0 + t + 0.16);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t0 + t);
+        osc.stop(t0 + t + 0.18);
+    });
+}
+
+const detectionAlert = document.getElementById('detection-alert');
+let _alertTimer = null;
+
+function showDetectionAlert(freqMHz, classifier, score) {
+    document.getElementById('alert-freq').textContent  = `${freqMHz} MHz`;
+    document.getElementById('alert-class').textContent = classifier;
+    document.getElementById('alert-score').textContent = score;
+    detectionAlert.classList.remove('show');
+    void detectionAlert.offsetWidth;
+    detectionAlert.classList.add('show');
+    clearTimeout(_alertTimer);
+    _alertTimer = setTimeout(() => detectionAlert.classList.remove('show'), 5000);
+}
+
+document.getElementById('alert-close').addEventListener('click', () => {
+    detectionAlert.classList.remove('show');
+    clearTimeout(_alertTimer);
+});
 
 const evtSource = new EventSource('/stream');
 
@@ -287,6 +342,9 @@ document.getElementById('device-select').addEventListener('change', function () 
 });
 
 document.getElementById('btn-start').addEventListener('click', async () => {
+    ensureAudio();
+    const verbosity = parseInt(document.getElementById('verbosity').value);
+    state.verbosity = verbosity;
     const body = {
         device:      document.getElementById('device-select').value,
         file_path:   document.getElementById('file-path').value,
@@ -295,7 +353,7 @@ document.getElementById('btn-start').addEventListener('click', async () => {
         min_freq:    parseFloat(document.getElementById('min-freq').value),
         max_freq:    parseFloat(document.getElementById('max-freq').value),
         sweeps:      parseInt(document.getElementById('sweeps').value) || 0,
-        verbosity:   parseInt(document.getElementById('verbosity').value),
+        verbosity:   verbosity,
         run_name:    document.getElementById('run-name').value || undefined,
     };
     const res = await fetch('/start', {
@@ -323,6 +381,8 @@ fetch('/status').then(r => r.json()).then(d => {
         document.getElementById('status-label').textContent = 'RUNNING';
     }
 });
+
+state.verbosity = parseInt(document.getElementById('verbosity').value);
 
 requestAnimationFrame(() => {
     resizeCanvases();

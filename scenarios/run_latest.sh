@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-# ── Usage ────────────────────────────────────────────────────────────────
+# usage:
 # ./scenarios/run_latest.sh --n-last <N> [options]
 #
 # Runs all 3 classifiers on the last N samples from the metadata CSV.
 # Quick sanity check after adding new data to the dataset.
-# ─────────────────────────────────────────────────────────────────────────
 
 usage() {
     cat <<EOF
@@ -113,8 +112,8 @@ for CLASSIFIER in "${CLASSIFIERS[@]}"; do
 
     echo ""
     echo "╔══════════════════════════════════════════════╗"
-    echo "║  Running: ${CLASSIFIER}"
-    echo "║  Prefix:  ${RUN_PREFIX}"
+    echo "║  Running: ${CLASSIFIER}"                     ║
+    echo "║  Prefix:  ${RUN_PREFIX}"                     ║   
     echo "╚══════════════════════════════════════════════╝"
     echo ""
 

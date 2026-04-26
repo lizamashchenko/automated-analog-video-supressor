@@ -6,13 +6,16 @@ class FakeResult:
     def __init__(self, ret):
         self.ret = ret
 
+# a file reader class imitating a real SDR from the recorded data
 class FileDevice:
     def __init__(self, filepath, metadata_path, sample_rate, loop=True):
+        # memap file, as they are quite big
         self.samples = np.memmap(filepath, dtype=np.complex64, mode='r')
         self.sample_rate = sample_rate
         self.loop = loop
 
         self.chunks = defaultdict(list)
+        # load recording metadata
         with open(metadata_path) as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -30,7 +33,8 @@ class FileDevice:
 
     def close(self):
         pass
-
+    
+    # retrieve samples from file
     def read(self, buff):
         if self.current_freq is None or self.current_freq not in self.chunks:
             return FakeResult(0)

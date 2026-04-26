@@ -1,18 +1,21 @@
 import SoapySDR
 from SoapySDR import *
 
-
+# a hackrf one class
 class HackRFDevice:
     def __init__(self, sample_rate, lna_gain=32, vga_gain=32):
         self.sample_rate = sample_rate
         self.lna_gain = lna_gain
         self.vga_gain = vga_gain
 
+        # initialize soapysdr device    
         print("[INFO] Opening HackRF...")
         self.sdr = SoapySDR.Device(dict(driver="hackrf"))
 
         self._setup_device()
         self._setup_stream()
+
+# =================== INNER FUNC =================
 
     def _setup_device(self):
         self.sdr.setSampleRate(SOAPY_SDR_RX, 0, self.sample_rate)

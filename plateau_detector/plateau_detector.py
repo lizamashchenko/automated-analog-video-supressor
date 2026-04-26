@@ -1,19 +1,21 @@
 import numpy as np
 
+# A class describing plateau detection logic. Evaluates if samples contain a plateau, or are noise
 
 class PlateauDetector:
+    # init function
     def __init__(
         self,
         sample_rate,
         fft_size,
         wide_sampling_num,
         freq_tolerance=2e6,
-        above_noise_threshold=0.3,
+        above_noise_threshold=0.5,
         edge_drop_level=0.1,
         min_lobe_size=0.2,
-        lobe_merge_gap=5.0,
-        min_video_width=3.0,
-        max_video_width=10,
+        lobe_merge_gap=3.0,
+        min_video_width=2.7,
+        max_video_width=10.0,
         plateau_required_ratio=0.3,
         logger=None
     ):
@@ -35,6 +37,7 @@ class PlateauDetector:
 
         self.logger = logger
 
+    # high-level detection function
     def detect(self, power, center_freq):
         freqs = np.linspace(
             center_freq - self.sample_rate / 2,
@@ -45,6 +48,7 @@ class PlateauDetector:
         clusters = self._find_clusters(power, center_freq)
         return self._extract_plateau(clusters, freqs)
 
+    # high-level function which validates a plateau as "strong" enough
     def validate(self, detections):
         if len(detections) < self.plateau_required_hits:
             return None
@@ -58,6 +62,7 @@ class PlateauDetector:
             "samples": [d[0] for d in detections]
         }
 
+    # glabal across runs map update
     def update_map(self, plateau_map, plateau):
         key = int(plateau["center_freq"] / self.freq_tolerance)
 
@@ -67,18 +72,27 @@ class PlateauDetector:
         plateau_map[key].extend(plateau["samples"])
         plateau_map[key] = plateau_map[key][-5:]
 
+# =============== INNER LOOP ===================
+
+    # function which returns clusters
     def _find_clusters(self, power, center_freq):
+        # smooth spectrum to remove noise
         smoothed = np.convolve(power, np.ones(3)/3, mode='same')
         noise_floor = np.median(smoothed)
 
+        # find peaks above noise floor
         above = smoothed[1:-1] - (noise_floor + self.above_noise_threshold)
         peak_mask = (smoothed[1:-1] > smoothed[:-2]) & (smoothed[1:-1] > smoothed[2:]) & (above > 0)
         peak_indices = np.where(peak_mask)[0] + 1
         max_above = float(np.max(above)) if len(above) > 0 else 0.0
 
+        # expand each peak to lobes
         lobes = self._expand_to_lobes(smoothed, peak_indices, noise_floor)
+        
+        # merge nearby lobes in one cluster
         merged, rejected_merged = self._merge_lobes(lobes)
 
+        # log results
         if self.logger:
             max_lobe_mhz = 0.0
             if lobes:
@@ -112,6 +126,7 @@ class PlateauDetector:
         edge_threshold = noise + self.edge_drop_level
         lobes = []
 
+        # determine left-most and right-most edges above noise
         for peak_idx in peaks:
             left = peak_idx
             while left > 0 and data[left] > edge_threshold:
@@ -128,7 +143,8 @@ class PlateauDetector:
                 lobes.append((left, right))
 
         return lobes
-
+    
+    # merge lobes into clusters
     def _merge_lobes(self, lobes):
         clusters = []
         rejected_widths = []
@@ -139,20 +155,24 @@ class PlateauDetector:
         lobes.sort()
         cur_left, cur_right = lobes[0]
 
+        # iterate lobes
         for left, right in lobes[1:]:
             if left - cur_right <= self.lobe_merge_bins:
+                # extend
                 cur_right = max(cur_right, right)
             else:
                 bw_bins = cur_right - cur_left + 1
                 bw_mhz = bw_bins * self.mhz_per_bin
 
+                # check eligibility
                 if bw_mhz >= self.min_video_width and bw_mhz <= self.max_video_width:
                     clusters.append((cur_left, cur_right, bw_mhz))
                 else:
                     rejected_widths.append(bw_mhz)
-
+                # update 
                 cur_left, cur_right = left, right
 
+        # check last
         bw_bins = cur_right - cur_left + 1
         bw_mhz = bw_bins * self.mhz_per_bin
 
@@ -163,6 +183,7 @@ class PlateauDetector:
 
         return clusters, rejected_widths
 
+    # calculate plateau parameters
     def _extract_plateau(self, clusters, freqs):
         if not clusters:
             return None
