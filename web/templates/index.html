@@ -127,6 +127,22 @@
       </div>
     </div>
 
+    <div class="panel" id="panel-jammer"{% if not cfg.jammer.enabled %} data-disabled="true"{% endif %}>
+      <div class="jammer-header">
+        <h2>Jammer</h2>
+        {% if not cfg.jammer.enabled %}<span class="badge-off">disabled</span>{% endif %}
+      </div>
+      <div id="jammer-channels">
+        {% for r in cfg.jammer.ranges %}
+        <div class="jammer-ch" data-channel="{{ loop.index }}">
+          <div class="ch-label">CH{{ loop.index }}</div>
+          <div class="ch-band">{{ "%.0f"|format(r.min/1e6) }}–{{ "%.0f"|format(r.max/1e6) }} MHz</div>
+          <div class="ch-countdown"></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
     <div class="bottom">
       <div class="bottom-col">
         <h2>Confirmed Plateaus</h2>

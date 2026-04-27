@@ -319,6 +319,45 @@ document.getElementById('alert-close').addEventListener('click', () => {
     clearTimeout(_alertTimer);
 });
 
+const jammerCells = {};
+document.querySelectorAll('.jammer-ch').forEach(el => {
+    jammerCells[parseInt(el.dataset.channel)] = el;
+});
+const jammerCountdowns = {};
+
+function handleJammerActivated(d) {
+    const cell = jammerCells[d.channel];
+    if (cell) {
+        cell.classList.add('active');
+        const cd = cell.querySelector('.ch-countdown');
+        let remaining = d.hold_s;
+        cd.textContent = `${remaining}s`;
+        clearInterval(jammerCountdowns[d.channel]);
+        jammerCountdowns[d.channel] = setInterval(() => {
+            remaining -= 1;
+            if (remaining <= 0) {
+                cd.textContent = '';
+                clearInterval(jammerCountdowns[d.channel]);
+                delete jammerCountdowns[d.channel];
+            } else {
+                cd.textContent = `${remaining}s`;
+            }
+        }, 1000);
+    }
+    logLine(`JAM ON  ch${d.channel} — ${(d.freq / 1e6).toFixed(1)} MHz, hold ${d.hold_s}s`, 'warning', true);
+}
+
+function handleJammerDeactivated(d) {
+    const cell = jammerCells[d.channel];
+    if (cell) {
+        cell.classList.remove('active');
+        cell.querySelector('.ch-countdown').textContent = '';
+    }
+    clearInterval(jammerCountdowns[d.channel]);
+    delete jammerCountdowns[d.channel];
+    logLine(`JAM OFF ch${d.channel}`, 'info', true);
+}
+
 const evtSource = new EventSource('/stream');
 
 evtSource.onmessage = (e) => {
@@ -333,6 +372,8 @@ evtSource.onmessage = (e) => {
         case 'plateau_rejected':                                    break;
         case 'video_confirmed':   handleVideoConfirmed(msg.data);   break;
         case 'video_rejected':    handleVideoRejected(msg.data);    break;
+        case 'jammer_activated':   handleJammerActivated(msg.data);   break;
+        case 'jammer_deactivated': handleJammerDeactivated(msg.data); break;
         case 'error':             handleError(msg.data);            break;
         case 'sweep_complete':    handleSweepComplete(msg.data);    break;
     }
