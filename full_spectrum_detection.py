@@ -4,8 +4,6 @@ import threading
 from utils.config import load as load_config
 from detector import Detector
 
-
-# Events shown at verbosity 0 (errors + final detections only).
 _QUIET_EVENTS = {"status", "error", "video_confirmed", "jammer_activated", "jammer_deactivated"}
 
 parser = argparse.ArgumentParser(description="Full-spectrum FPV drone detector")

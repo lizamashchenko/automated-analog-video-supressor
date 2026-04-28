@@ -66,7 +66,9 @@ analysis/                    # post-run metric and tuning tools
   eval_timing.py             # detection-latency analysis
   plot_detections.py, run_summary.py
 
-suppressor_driver_board/     # PlatformIO firmware for the Arduino Nano
+suppressor_bridge_board/     # PlatformIO firmware for the PC-side Arduino Nano
+                             # that bridges USB serial onto the wired link
+suppressor_driver_board/     # PlatformIO firmware for the far-end Arduino Nano
                              # that drives the 8 jammer modules
 ```
 
@@ -251,4 +253,12 @@ When `[jammer].enabled = true` in `config.toml`, every confirmed video detection
 | `hold_seconds` | How long a channel stays on per detection |
 | `ranges` | Per-channel `{ min, max }` frequency bands in Hz |
 
-The firmware that listens on the serial port is in [`suppressor_driver_board/`](suppressor_driver_board/) — a PlatformIO project for an Arduino Nano driving 8 RF-power channels.
+The serial path runs through two Arduino Nanos: [`suppressor_bridge_board/`](suppressor_bridge_board/) sits on the PC end and forwards USB-serial bytes onto a single twisted pair (lifted from a piece of Ethernet cable), and [`suppressor_driver_board/`](suppressor_driver_board/) sits at the antenna site and switches the 8 jammer channels.
+
+### Power-up order
+
+The bridge board (PC end) **must be powered before** the detector opens its serial port — wait **5 seconds after plugging it in** to give the firmware time to initialise its software UART and flush the link before starting `full_spectrum_detection.py` or `web/app.py`. Starting the detector against a not-yet-ready bridge will leak the first few bytes of the channel bitmask.
+
+## Branch policy
+
+Active development on `main` stops at the **thesis submission deadline**. After that point `main` is frozen as the as-submitted snapshot for the diploma — bug fixes and any further work continue on the **`post-thesis`** branch. Cut new feature branches off `post-thesis`, not `main`.
