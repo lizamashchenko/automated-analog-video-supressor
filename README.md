@@ -188,6 +188,8 @@ logs/my_run/
 └── samples/                 # {freq}MHz_{time}.npy per confirmed hit (L4+)
 ```
 
+Final logs, and result tables are submitted in the respective logs folder.
+
 ## Recording a sweep
 
 `utils/iq_capture.py` records a full 100 MHz–6 GHz sweep to disk as a flat binary IQ file plus a CSV metadata file. The result can be replayed with `--device file` or added to the dataset.

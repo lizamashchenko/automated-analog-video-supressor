@@ -1,0 +1,157 @@
+2026-04-24T17:46:04.789963,SDR_READ_ERROR,readStream failed,code=0
+2026-04-24T17:46:04.833779,PLATEAU_CONFIRMED,Wideband signal detected,freq=104998778.998779,bw=7.841796875,hits=8
+2026-04-24T17:46:04.868060,HARMONIC_RESULT,Harmonic classification result,freq=104998778.998779,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 2, 2: 1, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:04.868147,VIDEO_REJECTED,harmonic rejected video,freq=104998778.998779,score=0
+2026-04-24T17:46:04.881933,PLATEAU_CONFIRMED,Wideband signal detected,freq=125672771.67277168,bw=7.3779296875,hits=7
+2026-04-24T17:46:04.910545,HARMONIC_RESULT,Harmonic classification result,freq=125672771.67277168,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 1, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:04.910639,VIDEO_REJECTED,harmonic rejected video,freq=125672771.67277168,score=0
+2026-04-24T17:46:04.914205,PLATEAU_CONFIRMED,Wideband signal detected,freq=137120879.1208791,bw=4.951171875,hits=3
+2026-04-24T17:46:04.945075,PLATEAU_REJECTED,Not enough hits,hits=1,required=3,freq=160000000
+2026-04-24T17:46:04.945771,HARMONIC_RESULT,Harmonic classification result,freq=137120879.1208791,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 3, 2: 1, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:04.945820,VIDEO_REJECTED,harmonic rejected video,freq=137120879.1208791,score=0
+2026-04-24T17:46:05.071912,PLATEAU_CONFIRMED,Wideband signal detected,freq=246661782.66178268,bw=6.6748046875,hits=6
+2026-04-24T17:46:05.106828,PLATEAU_REJECTED,Not enough hits,hits=1,required=3,freq=260000000
+2026-04-24T17:46:05.107281,HARMONIC_RESULT,Harmonic classification result,freq=246661782.66178268,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 1, 2: 1, 3: 1, 4: 0},total_buffers=10
+2026-04-24T17:46:05.107353,VIDEO_REJECTED,harmonic rejected video,freq=246661782.66178268,score=0
+2026-04-24T17:46:05.162027,PLATEAU_CONFIRMED,Wideband signal detected,freq=294297924.2979243,bw=5.0439453125,hits=3
+2026-04-24T17:46:05.203456,PLATEAU_CONFIRMED,Wideband signal detected,freq=313448107.4481075,bw=4.9169921875,hits=6
+2026-04-24T17:46:05.204373,HARMONIC_RESULT,Harmonic classification result,freq=294297924.2979243,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:05.206267,VIDEO_REJECTED,harmonic rejected video,freq=294297924.2979243,score=0
+2026-04-24T17:46:05.237235,HARMONIC_RESULT,Harmonic classification result,freq=313448107.4481075,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 1, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:05.237287,VIDEO_REJECTED,harmonic rejected video,freq=313448107.4481075,score=0
+2026-04-24T17:46:05.261016,PLATEAU_REJECTED,Not enough hits,hits=1,required=3,freq=360000000
+2026-04-24T17:46:05.318828,PLATEAU_CONFIRMED,Wideband signal detected,freq=393853479.85347986,bw=7.4755859375,hits=4
+2026-04-24T17:46:05.353695,HARMONIC_RESULT,Harmonic classification result,freq=393853479.85347986,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 2, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:05.353781,VIDEO_REJECTED,harmonic rejected video,freq=393853479.85347986,score=0
+2026-04-24T17:46:05.556158,PLATEAU_CONFIRMED,Wideband signal detected,freq=565321123.3211234,bw=5.615234375,hits=3
+2026-04-24T17:46:05.590999,PLATEAU_CONFIRMED,Wideband signal detected,freq=585330891.3308914,bw=3.1201171875,hits=7
+2026-04-24T17:46:05.594486,HARMONIC_RESULT,Harmonic classification result,freq=565321123.3211234,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:05.594541,VIDEO_REJECTED,harmonic rejected video,freq=565321123.3211234,score=0
+2026-04-24T17:46:05.623908,PLATEAU_CONFIRMED,Wideband signal detected,freq=602463980.4639804,bw=7.8564453125,hits=9
+2026-04-24T17:46:05.628017,HARMONIC_RESULT,Harmonic classification result,freq=585330891.3308914,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:05.628169,VIDEO_REJECTED,harmonic rejected video,freq=585330891.3308914,score=0
+2026-04-24T17:46:05.658377,PLATEAU_CONFIRMED,Wideband signal detected,freq=617665445.6654457,bw=9.7021484375,hits=4
+2026-04-24T17:46:05.662393,HARMONIC_RESULT,Harmonic classification result,freq=602463980.4639804,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:05.662443,VIDEO_REJECTED,harmonic rejected video,freq=602463980.4639804,score=0
+2026-04-24T17:46:05.694988,HARMONIC_RESULT,Harmonic classification result,freq=617665445.6654457,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:05.695154,VIDEO_REJECTED,harmonic rejected video,freq=617665445.6654457,score=0
+2026-04-24T17:46:05.720819,PLATEAU_REJECTED,Not enough hits,hits=2,required=3,freq=660000000
+2026-04-24T17:46:05.751425,PLATEAU_CONFIRMED,Wideband signal detected,freq=685887667.8876679,bw=3.671875,hits=7
+2026-04-24T17:46:05.782901,PLATEAU_REJECTED,Not enough hits,hits=1,required=3,freq=700000000
+2026-04-24T17:46:05.789417,HARMONIC_RESULT,Harmonic classification result,freq=685887667.8876679,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 1, 4: 0},total_buffers=10
+2026-04-24T17:46:05.789485,VIDEO_REJECTED,harmonic rejected video,freq=685887667.8876679,score=0
+2026-04-24T17:46:05.837335,PLATEAU_REJECTED,Not enough hits,hits=1,required=3,freq=740000000
+2026-04-24T17:46:05.866390,PLATEAU_CONFIRMED,Wideband signal detected,freq=763201465.2014652,bw=3.1201171875,hits=3
+2026-04-24T17:46:05.896499,PLATEAU_REJECTED,Not enough hits,hits=1,required=3,freq=780000000
+2026-04-24T17:46:05.902178,HARMONIC_RESULT,Harmonic classification result,freq=763201465.2014652,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:05.902262,VIDEO_REJECTED,harmonic rejected video,freq=763201465.2014652,score=0
+2026-04-24T17:46:06.121198,PLATEAU_CONFIRMED,Wideband signal detected,freq=939973137.973138,bw=5.5029296875,hits=4
+2026-04-24T17:46:06.159514,PLATEAU_CONFIRMED,Wideband signal detected,freq=961792429.7924298,bw=7.1435546875,hits=8
+2026-04-24T17:46:06.160352,HARMONIC_RESULT,Harmonic classification result,freq=939973137.973138,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 1, 2: 1, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:06.162655,VIDEO_REJECTED,harmonic rejected video,freq=939973137.973138,score=0
+2026-04-24T17:46:06.192883,HARMONIC_RESULT,Harmonic classification result,freq=961792429.7924298,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 1, 2: 1, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:06.193024,VIDEO_REJECTED,harmonic rejected video,freq=961792429.7924298,score=0
+2026-04-24T17:46:06.377661,PLATEAU_REJECTED,Not enough hits,hits=2,required=3,freq=1120000000
+2026-04-24T17:46:06.460294,PLATEAU_CONFIRMED,Wideband signal detected,freq=1182385836.3858364,bw=5.283203125,hits=5
+2026-04-24T17:46:06.489668,HARMONIC_RESULT,Harmonic classification result,freq=1182385836.3858364,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:06.491698,VIDEO_REJECTED,harmonic rejected video,freq=1182385836.3858364,score=0
+2026-04-24T17:46:06.575728,PLATEAU_CONFIRMED,Wideband signal detected,freq=1266547008.5470085,bw=3.73046875,hits=7
+2026-04-24T17:46:06.613068,HARMONIC_RESULT,Harmonic classification result,freq=1266547008.5470085,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:06.613164,VIDEO_REJECTED,harmonic rejected video,freq=1266547008.5470085,score=0
+2026-04-24T17:46:06.621101,PLATEAU_CONFIRMED,Wideband signal detected,freq=1285360195.3601954,bw=9.23828125,hits=8
+2026-04-24T17:46:06.651413,HARMONIC_RESULT,Harmonic classification result,freq=1285360195.3601954,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:06.651530,VIDEO_REJECTED,harmonic rejected video,freq=1285360195.3601954,score=0
+2026-04-24T17:46:06.703370,PLATEAU_REJECTED,Not enough hits,hits=2,required=3,freq=1340000000
+2026-04-24T17:46:06.748381,PLATEAU_CONFIRMED,Wideband signal detected,freq=1356962148.9621491,bw=9.0087890625,hits=10
+2026-04-24T17:46:06.788378,PLATEAU_CONFIRMED,Wideband signal detected,freq=1375308913.3089132,bw=7.7294921875,hits=5
+2026-04-24T17:46:06.791454,HARMONIC_RESULT,Harmonic classification result,freq=1356962148.9621491,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 1},total_buffers=10
+2026-04-24T17:46:06.791565,VIDEO_REJECTED,harmonic rejected video,freq=1356962148.9621491,score=0
+2026-04-24T17:46:06.832588,PLATEAU_CONFIRMED,Wideband signal detected,freq=1393711843.7118437,bw=5.302734375,hits=5
+2026-04-24T17:46:06.837150,HARMONIC_RESULT,Harmonic classification result,freq=1375308913.3089132,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:06.837240,VIDEO_REJECTED,harmonic rejected video,freq=1375308913.3089132,score=0
+2026-04-24T17:46:06.881910,PLATEAU_CONFIRMED,Wideband signal detected,freq=1413374847.3748474,bw=5.6640625,hits=9
+2026-04-24T17:46:06.890199,HARMONIC_RESULT,Harmonic classification result,freq=1393711843.7118437,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:06.890246,VIDEO_REJECTED,harmonic rejected video,freq=1393711843.7118437,score=0
+2026-04-24T17:46:06.926192,HARMONIC_RESULT,Harmonic classification result,freq=1413374847.3748474,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:06.926270,VIDEO_REJECTED,harmonic rejected video,freq=1413374847.3748474,score=0
+2026-04-24T17:46:07.231439,PLATEAU_REJECTED,Not enough hits,hits=2,required=3,freq=1680000000
+2026-04-24T17:46:07.744156,PLATEAU_CONFIRMED,Wideband signal detected,freq=1807782661.7826617,bw=4.482421875,hits=8
+2026-04-24T17:46:07.971044,PLATEAU_CONFIRMED,Wideband signal detected,freq=1827846153.8461537,bw=5.966796875,hits=10
+2026-04-24T17:46:07.971135,HARMONIC_RESULT,Harmonic classification result,freq=1807782661.7826617,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 1, 2: 1, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:07.971221,VIDEO_REJECTED,harmonic rejected video,freq=1807782661.7826617,score=0
+2026-04-24T17:46:08.203926,PLATEAU_CONFIRMED,Wideband signal detected,freq=1847821733.8217337,bw=7.65625,hits=10
+2026-04-24T17:46:08.204361,HARMONIC_RESULT,Harmonic classification result,freq=1827846153.8461537,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 2, 2: 0, 3: 0, 4: 1},total_buffers=10
+2026-04-24T17:46:08.204411,VIDEO_REJECTED,harmonic rejected video,freq=1827846153.8461537,score=0
+2026-04-24T17:46:08.215675,HARMONIC_RESULT,Harmonic classification result,freq=1847821733.8217337,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 3, 2: 0, 3: 0, 4: 1},total_buffers=10
+2026-04-24T17:46:08.215709,VIDEO_REJECTED,harmonic rejected video,freq=1847821733.8217337,score=0
+2026-04-24T17:46:08.259776,PLATEAU_CONFIRMED,Wideband signal detected,freq=1854522588.5225885,bw=8.349609375,hits=7
+2026-04-24T17:46:08.302970,PLATEAU_CONFIRMED,Wideband signal detected,freq=1875494505.4945054,bw=8.4033203125,hits=8
+2026-04-24T17:46:08.303762,HARMONIC_RESULT,Harmonic classification result,freq=1854522588.5225885,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 1, 2: 0, 3: 1, 4: 0},total_buffers=10
+2026-04-24T17:46:08.303825,VIDEO_REJECTED,harmonic rejected video,freq=1854522588.5225885,score=0
+2026-04-24T17:46:08.340617,PLATEAU_CONFIRMED,Wideband signal detected,freq=1895396825.3968253,bw=6.73828125,hits=7
+2026-04-24T17:46:08.344076,HARMONIC_RESULT,Harmonic classification result,freq=1875494505.4945054,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 1, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:08.344153,VIDEO_REJECTED,harmonic rejected video,freq=1875494505.4945054,score=0
+2026-04-24T17:46:08.376521,HARMONIC_RESULT,Harmonic classification result,freq=1895396825.3968253,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 1, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:08.376600,VIDEO_REJECTED,harmonic rejected video,freq=1895396825.3968253,score=0
+2026-04-24T17:46:08.640310,PLATEAU_CONFIRMED,Wideband signal detected,freq=2113916971.916972,bw=6.0107421875,hits=5
+2026-04-24T17:46:08.720277,PLATEAU_CONFIRMED,Wideband signal detected,freq=2144300366.3003664,bw=9.9365234375,hits=7
+2026-04-24T17:46:08.720524,HARMONIC_RESULT,Harmonic classification result,freq=2113916971.916972,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 1, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:08.720602,VIDEO_REJECTED,harmonic rejected video,freq=2113916971.916972,score=0
+2026-04-24T17:46:08.752387,PLATEAU_REJECTED,Not enough hits,hits=2,required=3,freq=2160000000
+2026-04-24T17:46:08.758211,HARMONIC_RESULT,Harmonic classification result,freq=2144300366.3003664,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 1, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:08.758298,VIDEO_REJECTED,harmonic rejected video,freq=2144300366.3003664,score=0
+2026-04-24T17:46:08.933923,PLATEAU_CONFIRMED,Wideband signal detected,freq=2186266178.266178,bw=5.60546875,hits=10
+2026-04-24T17:46:09.039417,PLATEAU_CONFIRMED,Wideband signal detected,freq=2207269841.269841,bw=3.69140625,hits=7
+2026-04-24T17:46:09.039988,HARMONIC_RESULT,Harmonic classification result,freq=2186266178.266178,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:09.040041,VIDEO_REJECTED,harmonic rejected video,freq=2186266178.266178,score=0
+2026-04-24T17:46:09.068492,HARMONIC_RESULT,Harmonic classification result,freq=2207269841.269841,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:09.068564,VIDEO_REJECTED,harmonic rejected video,freq=2207269841.269841,score=0
+2026-04-24T17:46:09.317563,PLATEAU_CONFIRMED,Wideband signal detected,freq=2408300366.3003664,bw=4.6142578125,hits=4
+2026-04-24T17:46:09.344439,HARMONIC_RESULT,Harmonic classification result,freq=2408300366.3003664,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:09.344483,VIDEO_REJECTED,harmonic rejected video,freq=2408300366.3003664,score=0
+2026-04-24T17:46:09.690018,PLATEAU_CONFIRMED,Wideband signal detected,freq=2645106227.106227,bw=8.9208984375,hits=6
+2026-04-24T17:46:09.738384,PLATEAU_CONFIRMED,Wideband signal detected,freq=2662312576.3125763,bw=8.22265625,hits=7
+2026-04-24T17:46:09.738823,HARMONIC_RESULT,Harmonic classification result,freq=2645106227.106227,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 1, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:09.738879,VIDEO_REJECTED,harmonic rejected video,freq=2645106227.106227,score=0
+2026-04-24T17:46:09.790017,PLATEAU_CONFIRMED,Wideband signal detected,freq=2672358974.3589745,bw=4.287109375,hits=7
+2026-04-24T17:46:09.790402,HARMONIC_RESULT,Harmonic classification result,freq=2662312576.3125763,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 2, 4: 0},total_buffers=10
+2026-04-24T17:46:09.790539,VIDEO_REJECTED,harmonic rejected video,freq=2662312576.3125763,score=0
+2026-04-24T17:46:09.816160,HARMONIC_RESULT,Harmonic classification result,freq=2672358974.3589745,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:09.816221,VIDEO_REJECTED,harmonic rejected video,freq=2672358974.3589745,score=0
+2026-04-24T17:46:10.470293,PLATEAU_REJECTED,Not enough hits,hits=2,required=3,freq=3220000000
+2026-04-24T17:46:10.747421,PLATEAU_CONFIRMED,Wideband signal detected,freq=3439035409.035409,bw=4.365234375,hits=4
+2026-04-24T17:46:10.778264,HARMONIC_RESULT,Harmonic classification result,freq=3439035409.035409,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:10.778390,VIDEO_REJECTED,harmonic rejected video,freq=3439035409.035409,score=0
+2026-04-24T17:46:10.815244,PLATEAU_CONFIRMED,Wideband signal detected,freq=3472246642.246642,bw=4.1552734375,hits=5
+2026-04-24T17:46:10.843838,HARMONIC_RESULT,Harmonic classification result,freq=3472246642.246642,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:10.846896,VIDEO_REJECTED,harmonic rejected video,freq=3472246642.246642,score=0
+2026-04-24T17:46:11.526113,PLATEAU_CONFIRMED,Wideband signal detected,freq=3933614163.6141634,bw=6.142578125,hits=7
+2026-04-24T17:46:11.561822,HARMONIC_RESULT,Harmonic classification result,freq=3933614163.6141634,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:11.561975,VIDEO_REJECTED,harmonic rejected video,freq=3933614163.6141634,score=0
+2026-04-24T17:46:11.788942,PLATEAU_REJECTED,Not enough hits,hits=2,required=3,freq=4140000000
+2026-04-24T17:46:11.823490,PLATEAU_CONFIRMED,Wideband signal detected,freq=4157496947.4969473,bw=9.00390625,hits=3
+2026-04-24T17:46:11.854324,PLATEAU_REJECTED,Not enough hits,hits=1,required=3,freq=4180000000
+2026-04-24T17:46:11.860287,HARMONIC_RESULT,Harmonic classification result,freq=4157496947.4969473,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:11.860337,VIDEO_REJECTED,harmonic rejected video,freq=4157496947.4969473,score=0
+2026-04-24T17:46:12.851093,PLATEAU_CONFIRMED,Wideband signal detected,freq=4985863247.863248,bw=4.0478515625,hits=4
+2026-04-24T17:46:12.890392,PLATEAU_CONFIRMED,Wideband signal detected,freq=5003067155.067156,bw=7.060546875,hits=4
+2026-04-24T17:46:12.890985,HARMONIC_RESULT,Harmonic classification result,freq=4985863247.863248,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:12.891081,VIDEO_REJECTED,harmonic rejected video,freq=4985863247.863248,score=0
+2026-04-24T17:46:12.986476,PLATEAU_CONFIRMED,Wideband signal detected,freq=5021316239.316239,bw=8.90625,hits=9
+2026-04-24T17:46:12.987741,HARMONIC_RESULT,Harmonic classification result,freq=5003067155.067156,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:12.987867,VIDEO_REJECTED,harmonic rejected video,freq=5003067155.067156,score=0
+2026-04-24T17:46:13.083528,PLATEAU_CONFIRMED,Wideband signal detected,freq=5036969474.969475,bw=8.720703125,hits=8
+2026-04-24T17:46:13.089109,HARMONIC_RESULT,Harmonic classification result,freq=5021316239.316239,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 1},total_buffers=10
+2026-04-24T17:46:13.089212,VIDEO_REJECTED,harmonic rejected video,freq=5021316239.316239,score=0
+2026-04-24T17:46:13.126936,PLATEAU_CONFIRMED,Wideband signal detected,freq=5054942612.942614,bw=8.720703125,hits=10
+2026-04-24T17:46:13.133222,HARMONIC_RESULT,Harmonic classification result,freq=5036969474.969475,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 1, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:13.133285,VIDEO_REJECTED,harmonic rejected video,freq=5036969474.969475,score=0
+2026-04-24T17:46:13.157097,PLATEAU_REJECTED,Not enough hits,hits=1,required=3,freq=5080000000
+2026-04-24T17:46:13.173982,HARMONIC_RESULT,Harmonic classification result,freq=5054942612.942614,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 0, 4: 0},total_buffers=10
+2026-04-24T17:46:13.174043,VIDEO_REJECTED,harmonic rejected video,freq=5054942612.942614,score=0
+2026-04-24T17:46:13.235628,PLATEAU_REJECTED,Not enough hits,hits=1,required=3,freq=5140000000
+2026-04-24T17:46:14.135927,PLATEAU_CONFIRMED,Wideband signal detected,freq=5839328449.328449,bw=5.7080078125,hits=8
+2026-04-24T17:46:14.173781,HARMONIC_RESULT,Harmonic classification result,freq=5839328449.328449,confirmed=True,confirmed_harmonics=4,required=3,hit_counts={1: 7, 2: 7, 3: 8, 4: 4},total_buffers=10
+2026-04-24T17:46:14.177415,PLATEAU_CONFIRMED,Wideband signal detected,freq=5859230769.230769,bw=3.2080078125,hits=10
+2026-04-24T17:46:14.177389,VIDEO_CONFIRMED,harmonic confirmed video,freq=5839328449.328449,score=4
+2026-04-24T17:46:14.207089,HARMONIC_RESULT,Harmonic classification result,freq=5859230769.230769,confirmed=False,confirmed_harmonics=0,required=3,hit_counts={1: 0, 2: 0, 3: 1, 4: 0},total_buffers=10
