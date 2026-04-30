@@ -2,6 +2,26 @@
 
 Detects analog FPV drone video transmitters by scanning the RF spectrum with a HackRF One and classifying wideband signals as PAL/NTSC analog video. Optionally drives a multi-channel jammer when a transmitter is confirmed.
 
+## Dataset
+
+The dataset is publicly available at [https://zenodo.org/records/19870020](Zenodo). After the download make sure to extract all the archives into one folder. The structure should be like this:
+```
+<folder_name>
+  sweep_date_time1/
+    iq.bin
+    metadata.csv
+  sweep_date_time2/
+  .
+  .
+  .
+  sweep_date_time48/
+    iq.bin
+    metadata.csv
+  metadata.csv
+```
+
+After that set the dataset path in the [`config.toml`](config.toml) for further compatibility.
+
 ## How it works
 
 The detection pipeline has three stages:
