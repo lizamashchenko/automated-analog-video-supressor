@@ -4,9 +4,9 @@ Detects analog FPV drone video transmitters by scanning the RF spectrum with a H
 
 ## Dataset
 
-The dataset is publicly available at [https://zenodo.org/records/19870020](Zenodo). After the download make sure to extract all the archives into one folder. The structure should be like this:
+The dataset is publicly available at [Zenodo](https://zenodo.org/records/19870020). After the download make sure to extract all the archives into one folder. The structure should be like this:
 ```
-<folder_name>
+<your_folder_name>/
   sweep_date_time1/
     iq.bin
     metadata.csv
